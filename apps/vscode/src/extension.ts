@@ -56,6 +56,16 @@ export function activate(context: vscode.ExtensionContext) {
       await refreshAll();
     }),
 
+    vscode.commands.registerCommand("aiPm.disconnectProject", async () => {
+      if (!selection.projectId) {
+        vscode.window.showInformationMessage("AI PM: this workspace isn't connected to a project.");
+        return;
+      }
+      await selection.setProject(undefined);
+      vscode.window.showInformationMessage("AI PM: disconnected. Run “AI PM: Connect Project” to link a different one.");
+      await refreshAll();
+    }),
+
     vscode.commands.registerCommand("aiPm.connectProject", async () => {
       let projects;
       try {
