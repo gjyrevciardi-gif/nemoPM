@@ -1,0 +1,81 @@
+{
+  "name": "ai-pm-extension",
+  "displayName": "AI PM",
+  "description": "AI Project Manager companion: connect a repo, track your current task, and keep project context in sync from VS Code.",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "aiPm",
+          "title": "AI PM",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "aiPm": [
+        {
+          "id": "aiPm.sidebar",
+          "name": "AI PM",
+          "contextualTitle": "AI PM"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "aiPm.sidebar",
+        "contents": "No project connected.\n[Connect Project](command:aiPm.connectProject)"
+      }
+    ],
+    "commands": [
+      { "command": "aiPm.connectProject", "title": "AI PM: Connect Project" },
+      { "command": "aiPm.selectCurrentTask", "title": "AI PM: Select Current Task" },
+      { "command": "aiPm.startCurrentTask", "title": "AI PM: Start Current Task" },
+      { "command": "aiPm.reviewCurrentTask", "title": "AI PM: Move Current Task to Review" },
+      { "command": "aiPm.completeCurrentTask", "title": "AI PM: Complete Current Task" },
+      { "command": "aiPm.createTask", "title": "AI PM: Create Task" },
+      { "command": "aiPm.scanGitActivity", "title": "AI PM: Scan Git Activity" },
+      { "command": "aiPm.projectStatus", "title": "AI PM: Project Status" },
+      { "command": "aiPm.refresh", "title": "AI PM: Refresh", "icon": "$(refresh)" }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "aiPm.refresh",
+          "when": "view == aiPm.sidebar",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AI PM",
+      "properties": {
+        "aiPm.apiUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:43821",
+          "description": "Base URL of the AI PM API server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@ai-pm/shared": "workspace:*",
+    "@types/node": "^22.7.5",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.6.3"
+  }
+}

@@ -1,0 +1,11 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+allowBuilds:
+  # better-sqlite3 v13+ ships prebuilt native binaries directly in the package
+  # (prebuilds/win32-x64.node etc). It has no install/postinstall script, but pnpm's
+  # legacy "binding.gyp with no script => implicit node-gyp rebuild" heuristic still
+  # fires unless explicitly disabled here -- that rebuild is both unnecessary and
+  # fails on machines without Python/build tools, so skip it.
+  better-sqlite3: false
+  esbuild: true

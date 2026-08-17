@@ -1,0 +1,26 @@
+{
+  "name": "@ai-pm/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "seed": "tsx src/seed.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ai-pm/shared": "workspace:*",
+    "better-sqlite3": "^13.0.3",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^22.7.5",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.2"
+  }
+}

@@ -1,0 +1,69 @@
+@import "@fontsource/space-grotesk/500.css";
+@import "@fontsource/space-grotesk/600.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    background-image:
+      radial-gradient(circle at 15% 0%, rgba(233, 162, 59, 0.05), transparent 45%),
+      radial-gradient(circle at 85% 20%, rgba(139, 127, 232, 0.04), transparent 40%);
+    background-attachment: fixed;
+  }
+  ::selection {
+    background: rgba(233, 162, 59, 0.3);
+  }
+  :focus-visible {
+    outline: 2px solid #e9a23b;
+    outline-offset: 2px;
+  }
+  * {
+    @apply border-border;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface border border-border rounded-md shadow-card;
+  }
+}
+
+/* Signature element: a quiet pulse marking whatever the system considers
+   "active" right now -- the one currently in_progress issue, a live git
+   connection. Used sparingly and only for genuinely live state. */
+@keyframes signal-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(233, 162, 59, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 8px rgba(233, 162, 59, 0);
+  }
+}
+
+.signal-dot {
+  position: relative;
+}
+.signal-dot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  animation: signal-pulse 2.2s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signal-dot::before {
+    animation: none;
+  }
+}
