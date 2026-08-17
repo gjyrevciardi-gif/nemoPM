@@ -21,4 +21,17 @@ describe("OllamaProvider failure handling", () => {
       provider.structured({ messages: [{ role: "user", content: "hi" }], schema }),
     ).rejects.toBeInstanceOf(AIUnavailableError);
   });
+
+  it("throws AIUnavailableError for runAgent() the same way, without ever calling executeTool", async () => {
+    const provider = new OllamaProvider({ baseUrl: "http://127.0.0.1:1", timeoutMs: 2000 });
+    const executeTool = async () => ({ ok: true });
+
+    await expect(
+      provider.runAgent({
+        messages: [{ role: "user", content: "hi" }],
+        tools: [],
+        executeTool,
+      }),
+    ).rejects.toBeInstanceOf(AIUnavailableError);
+  });
 });

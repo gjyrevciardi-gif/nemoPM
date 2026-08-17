@@ -7,8 +7,10 @@ export * from "./risk.js";
 export * from "./git.js";
 export * from "./state.js";
 export * from "./ai.js";
+export * from "./agent.js";
 export * from "./settings.js";
 export * from "./burndown.js";
+export * from "./events.js";
 
 export class ApiError extends Error {
   status: number;

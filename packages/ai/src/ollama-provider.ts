@@ -1,5 +1,14 @@
 import { z } from "zod";
-import type { AIProvider, ChatInput, ChatResult, StructuredInput } from "./types.js";
+import type {
+  AgentChatInput,
+  AgentTurnResult,
+  AIProvider,
+  ChatInput,
+  ChatResult,
+  StructuredInput,
+  ToolCall,
+  ToolSpec,
+} from "./types.js";
 import { AIUnavailableError } from "./types.js";
 
 export interface OllamaProviderOptions {
@@ -9,14 +18,20 @@ export interface OllamaProviderOptions {
   timeoutMs?: number;
 }
 
+interface OllamaToolCallBody {
+  function?: { name?: string; arguments?: unknown };
+}
+
 interface OllamaChatResponseBody {
-  message?: { role: string; content: string };
+  message?: { role: string; content: string; tool_calls?: OllamaToolCallBody[] };
   model?: string;
 }
 
 interface OllamaTagsResponseBody {
   models?: { name: string }[];
 }
+
+const DEFAULT_MAX_STEPS = 6;
 
 export class OllamaProvider implements AIProvider {
   private readonly baseUrl: string;
@@ -30,7 +45,11 @@ export class OllamaProvider implements AIProvider {
       "",
     );
     this.configuredModel = options.model ?? process.env.OLLAMA_MODEL ?? undefined;
-    this.timeoutMs = options.timeoutMs ?? 45_000;
+    // 45s was too tight even for a single plain status call on CPU-only local
+    // hardware once the model needs a cold load (observed 65s total for an
+    // 8B model's first response, ~19s of which was just loading weights).
+    // Tool-calling agent turns can take several such round trips.
+    this.timeoutMs = options.timeoutMs ?? 120_000;
   }
 
   private async resolveModel(): Promise<string> {
@@ -64,7 +83,7 @@ export class OllamaProvider implements AIProvider {
   private async callChat(
     model: string,
     messages: ChatInput["messages"],
-    options: { temperature?: number; format?: "json" },
+    options: { temperature?: number; format?: "json"; tools?: unknown[] },
   ): Promise<OllamaChatResponseBody> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -78,6 +97,7 @@ export class OllamaProvider implements AIProvider {
           messages,
           stream: false,
           ...(options.format ? { format: options.format } : {}),
+          ...(options.tools ? { tools: options.tools } : {}),
           options: {
             temperature: options.temperature ?? 0.2,
           },
@@ -144,6 +164,64 @@ export class OllamaProvider implements AIProvider {
     }
     return result.data;
   }
+
+  async runAgent(input: AgentChatInput): Promise<AgentTurnResult> {
+    const model = await this.resolveModel();
+    const maxSteps = input.maxSteps ?? DEFAULT_MAX_STEPS;
+    const tools = input.tools.map(toOllamaTool);
+    const messages: ChatInput["messages"] = [...input.messages];
+    const toolCalls: AgentTurnResult["toolCalls"] = [];
+
+    for (let step = 0; step < maxSteps; step++) {
+      const body = await this.callChat(model, messages, { temperature: input.temperature, tools });
+      const message = body.message;
+      if (!message) throw new AIUnavailableError("Ollama returned no message.");
+
+      const rawCalls = message.tool_calls ?? [];
+      if (rawCalls.length === 0) {
+        const text = message.content?.trim();
+        if (!text) throw new AIUnavailableError("Ollama returned an empty response.");
+        return { text, toolCalls };
+      }
+
+      messages.push({ role: "assistant", content: message.content ?? "" });
+
+      for (const raw of rawCalls) {
+        const call: ToolCall = {
+          name: raw.function?.name ?? "",
+          arguments: normalizeToolArgs(raw.function?.arguments),
+        };
+        const result = await input.executeTool(call);
+        toolCalls.push({ call, result });
+        messages.push({ role: "tool", name: call.name, content: JSON.stringify(result) });
+      }
+    }
+
+    throw new AIUnavailableError(`AI PM did not finish planning within ${maxSteps} tool-calling step(s).`);
+  }
+}
+
+function toOllamaTool(tool: ToolSpec) {
+  return {
+    type: "function",
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters,
+    },
+  };
+}
+
+function normalizeToolArgs(args: unknown): Record<string, unknown> {
+  if (args && typeof args === "object") return args as Record<string, unknown>;
+  if (typeof args === "string") {
+    try {
+      return JSON.parse(args);
+    } catch {
+      return {};
+    }
+  }
+  return {};
 }
 
 function stripCodeFences(text: string): string {

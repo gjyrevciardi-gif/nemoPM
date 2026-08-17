@@ -42,6 +42,7 @@ export const ActivityTypeSchema = z.enum([
   "git.files_changed",
   "ai.status_requested",
   "ai.plan_generated",
+  "ai.agent_run",
   "risk.detected",
   "risk.resolved",
   "dependency.added",

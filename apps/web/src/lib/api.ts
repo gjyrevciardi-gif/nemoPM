@@ -22,7 +22,7 @@ import type {
   UpdateRiskThresholdsInput,
 } from "@ai-pm/shared";
 
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://127.0.0.1:43821";
+export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://127.0.0.1:43821";
 
 export interface CodeLink {
   id: string;

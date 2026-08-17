@@ -5,6 +5,10 @@ import type { FastifyInstance } from "fastify";
 // @ai-pm/database) is imported, so these tests never touch the real
 // data/ai-pm.db file used by `pnpm dev`.
 process.env.DATABASE_PATH = ":memory:";
+// Force AI calls to a deliberately unreachable port so AI-dependent tests are
+// deterministic regardless of whether a real Ollama happens to be running on
+// this machine (port 1 is reserved and refuses connections immediately).
+process.env.OLLAMA_BASE_URL = "http://127.0.0.1:1";
 
 let app: FastifyInstance;
 let closeDb: () => void;
@@ -112,5 +116,107 @@ describe("core workflow", () => {
     expect(risks.statusCode).toBe(200);
     const riskList = risks.json();
     expect(riskList.some((r: { type: string }) => r.type === "dependency")).toBe(true);
+  });
+
+  it("confirming a plan with autoSprint and no active sprint creates and starts one", async () => {
+    const project = (
+      await app.inject({ method: "POST", url: "/projects", payload: { name: "Plan Project", key: "PLN" } })
+    ).json();
+
+    const confirm = await app.inject({
+      method: "POST",
+      url: `/projects/${project.id}/ai/plan-task/confirm`,
+      payload: {
+        feature: "Login",
+        autoSprint: true,
+        tasks: [{ title: "Build login form", type: "task", description: "", storyPoints: 3, priority: "medium" }],
+      },
+    });
+    expect(confirm.statusCode).toBe(201);
+    const issues = confirm.json();
+    expect(issues).toHaveLength(1);
+    expect(issues[0].sprintId).not.toBeNull();
+
+    const sprints = await app.inject({ method: "GET", url: `/projects/${project.id}/sprints` });
+    const sprint = sprints.json().find((s: { id: string }) => s.id === issues[0].sprintId);
+    expect(sprint.name).toBe("Login");
+    expect(sprint.status).toBe("active");
+  });
+
+  it("the project agent fails safely (503, no crash) when Ollama is unavailable", async () => {
+    const project = (
+      await app.inject({ method: "POST", url: "/projects", payload: { name: "Agent Project", key: "AGT" } })
+    ).json();
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/projects/${project.id}/agent`,
+      payload: { message: "create a high priority bug for the login crash" },
+    });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error.code).toBe("AI_UNAVAILABLE");
+  });
+
+  it("applying an unknown agent run returns 404", async () => {
+    const project = (
+      await app.inject({ method: "POST", url: "/projects", payload: { name: "Agent Project 2", key: "AGT2" } })
+    ).json();
+
+    const res = await app.inject({
+      method: "POST",
+      url: `/projects/${project.id}/agent/does-not-exist/apply`,
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("broadcasts a change event for writes, with the owning project, and stays quiet for reads", async () => {
+    const { subscribeToChanges } = await import("../src/lib/events.js");
+    const events: { projectId: string | null; method: string; path: string }[] = [];
+    const unsubscribe = subscribeToChanges((event) => events.push(event));
+
+    try {
+      const project = (
+        await app.inject({ method: "POST", url: "/projects", payload: { name: "Live Project", key: "LIV" } })
+      ).json();
+
+      // A write keyed by another entity still resolves to its project, so
+      // clients watching one project aren't refreshed by another's changes.
+      const issue = (
+        await app.inject({
+          method: "POST",
+          url: "/issues",
+          payload: { projectId: project.id, title: "Sync me", status: "todo" },
+        })
+      ).json();
+      expect(events.at(-1)).toMatchObject({ projectId: project.id, method: "POST", path: "/issues" });
+
+      await app.inject({ method: "POST", url: `/issues/${issue.id}/start` });
+      expect(events.at(-1)).toMatchObject({ projectId: project.id, path: `/issues/${issue.id}/start` });
+
+      // Reads and failed writes change nothing, so they announce nothing.
+      const before = events.length;
+      await app.inject({ method: "GET", url: `/projects/${project.id}/issues` });
+      await app.inject({ method: "POST", url: "/projects", payload: { name: "" } });
+      expect(events).toHaveLength(before);
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it("confirming a plan with sprintId null leaves issues in the backlog", async () => {
+    const project = (
+      await app.inject({ method: "POST", url: "/projects", payload: { name: "Backlog Project", key: "BKL" } })
+    ).json();
+
+    const confirm = await app.inject({
+      method: "POST",
+      url: `/projects/${project.id}/ai/plan-task/confirm`,
+      payload: {
+        sprintId: null,
+        tasks: [{ title: "Some task", type: "task", description: "", storyPoints: 2, priority: "low" }],
+      },
+    });
+    expect(confirm.statusCode).toBe(201);
+    expect(confirm.json()[0].sprintId).toBeNull();
   });
 });
