@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { ApiError } from "@ai-pm/shared";
 import type { CreateSprintInput, Sprint } from "@ai-pm/shared";
 import { newId, now } from "../util.js";
 import { recordActivity } from "./activities.js";
@@ -69,8 +70,26 @@ export function getActiveSprint(db: Database.Database, projectId: string): Sprin
   return row ? toSprint(row) : null;
 }
 
+/**
+ * A project has at most one active sprint. Enforced here with a readable
+ * error, and again by a partial unique index in the database so no code path
+ * -- REST, agent, or a future one -- can leave two sprints running.
+ */
 export function startSprint(db: Database.Database, id: string): Sprint {
   const existing = getSprintOrThrow(db, id);
+  if (existing.status === "completed") {
+    throw new ApiError(409, "SPRINT_COMPLETED", `Sprint "${existing.name}" is already completed.`);
+  }
+
+  const active = getActiveSprint(db, existing.projectId);
+  if (active && active.id !== id) {
+    throw new ApiError(
+      409,
+      "SPRINT_CONFLICT",
+      `Sprint "${active.name}" is already active in this project. Complete it before starting "${existing.name}".`,
+    );
+  }
+
   const ts = now();
   db.prepare("UPDATE sprints SET status = 'active', started_at = COALESCE(started_at, ?) WHERE id = ?").run(
     ts,

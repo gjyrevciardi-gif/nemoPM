@@ -29,6 +29,8 @@ export class ChatController {
         await this.handleSend(webview, String(message.text ?? ""));
       } else if (message.type === "apply") {
         await this.handleApply(webview, String(message.runId ?? ""));
+      } else if (message.type === "reject") {
+        await this.handleReject(webview, String(message.runId ?? ""));
       } else if (message.type === "switchProject") {
         // The picker refreshes every surface itself, this one included.
         await this.onSwitchProject();
@@ -92,6 +94,22 @@ export class ChatController {
       webview.postMessage({ type: "assistant", role: "error", text: errorText(err) });
     } finally {
       webview.postMessage({ type: "thinking", value: false });
+    }
+  }
+
+  /**
+   * Cancelling has to reach the server, not just clear the card: a proposal
+   * left in "proposed" is a plan the audit trail says nobody ever decided on,
+   * and it stays applicable until it expires.
+   */
+  private async handleReject(webview: vscode.Webview, runId: string) {
+    const projectId = this.selection.projectId;
+    if (!projectId || !runId) return;
+    try {
+      await api.rejectAgentRun(projectId, runId);
+      webview.postMessage({ type: "rejected", runId });
+    } catch (err) {
+      webview.postMessage({ type: "assistant", role: "error", text: errorText(err) });
     }
   }
 

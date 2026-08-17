@@ -274,11 +274,12 @@ export function renderChatHtml(nonce: string, variant: "sidebar" | "panel"): str
     const cancel = el('button', 'ghost', 'Cancel');
     const apply = el('button', null, 'Apply');
     apply.addEventListener('click', () => vscode.postMessage({ type: 'apply', runId }));
+    // Tell the server too, so the run is recorded as rejected rather than left
+    // hanging as an undecided proposal.
     cancel.addEventListener('click', () => {
-      foot.innerHTML = '';
-      foot.appendChild(el('span', 'note', 'Cancelled — nothing was changed.'));
-      head.textContent = 'Cancelled';
-      card.classList.remove('await');
+      cancel.disabled = true;
+      apply.disabled = true;
+      vscode.postMessage({ type: 'reject', runId });
     });
     foot.append(note, cancel, apply);
     card.appendChild(foot);
@@ -329,6 +330,14 @@ export function renderChatHtml(nonce: string, variant: "sidebar" | "panel"): str
     } else if (m.type === 'applying') {
       const r = runs.get(m.runId);
       if (r) { r.apply.disabled = m.value; r.cancel.disabled = m.value; if (m.value) r.note.textContent = 'Applying…'; }
+    } else if (m.type === 'rejected') {
+      const r = runs.get(m.runId);
+      if (r) {
+        r.foot.innerHTML = '';
+        r.foot.appendChild(el('span', 'note', 'Cancelled — nothing was changed.'));
+        r.head.textContent = 'Cancelled';
+        r.card.classList.remove('await');
+      }
     } else if (m.type === 'applied') {
       const r = runs.get(m.runId);
       if (r) {

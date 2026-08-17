@@ -82,6 +82,8 @@ export const api = {
     post<AgentResponse>(`/projects/${projectId}/agent`, { message }),
   applyAgentRun: (projectId: string, runId: string) =>
     post<AgentApplyResponse>(`/projects/${projectId}/agent/${runId}/apply`),
+  rejectAgentRun: (projectId: string, runId: string) =>
+    post<{ runId: string; status: string }>(`/projects/${projectId}/agent/${runId}/reject`),
 
   listSprints: (projectId: string) => request<Sprint[]>(`/projects/${projectId}/sprints`),
   createSprint: (input: CreateSprintInput) => post<Sprint>("/sprints", input),

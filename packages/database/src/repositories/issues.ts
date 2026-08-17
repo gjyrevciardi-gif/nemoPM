@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { ApiError } from "@ai-pm/shared";
 import type { CreateIssueInput, Issue, IssueStatus, UpdateIssueInput } from "@ai-pm/shared";
 import { newId, now } from "../util.js";
 import { nextIssueKey } from "./projects.js";
@@ -105,15 +106,63 @@ export function getIssue(db: Database.Database, id: string): Issue | null {
   return row ? toIssue(row) : null;
 }
 
+/**
+ * Key lookup scoped to one project, hitting the UNIQUE(project_id, key) index.
+ * The agent resolves a key per tool call, so doing this by scanning the whole
+ * project's issue list turned a 20-key sprint plan into 20 full table reads.
+ */
+export function getIssueByKey(db: Database.Database, projectId: string, key: string): Issue | null {
+  const row = db
+    .prepare("SELECT * FROM issues WHERE project_id = ? AND key = ? COLLATE NOCASE")
+    .get(projectId, key.trim()) as IssueRow | undefined;
+  return row ? toIssue(row) : null;
+}
+
 export function getIssueOrThrow(db: Database.Database, id: string): Issue {
   const issue = getIssue(db, id);
   if (!issue) throw new Error(`Issue not found: ${id}`);
   return issue;
 }
 
+/**
+ * Rejects ids that belong to another project.
+ *
+ * Sprint and parent are the two fields on an issue that point at another row,
+ * and both are reachable from the REST API with a raw id. Checking here means
+ * no caller -- a client, a future route, or the agent -- can attach an issue
+ * to another project's sprint or hierarchy.
+ */
+function assertSameProject(
+  db: Database.Database,
+  issue: Issue,
+  input: UpdateIssueInput,
+): void {
+  if (input.sprintId) {
+    const sprint = db
+      .prepare("SELECT project_id FROM sprints WHERE id = ?")
+      .get(input.sprintId) as { project_id: string } | undefined;
+    if (!sprint) throw new ApiError(404, "NOT_FOUND", `Sprint not found: ${input.sprintId}`);
+    if (sprint.project_id !== issue.projectId) {
+      throw new ApiError(400, "CROSS_PROJECT", "An issue can only belong to a sprint in its own project.");
+    }
+  }
+
+  if (input.parentId) {
+    const parent = getIssue(db, input.parentId);
+    if (!parent) throw new ApiError(404, "NOT_FOUND", `Parent issue not found: ${input.parentId}`);
+    if (parent.projectId !== issue.projectId) {
+      throw new ApiError(400, "CROSS_PROJECT", "A parent issue must belong to the same project.");
+    }
+    if (parent.id === issue.id) {
+      throw new ApiError(400, "INVALID_PARENT", "An issue cannot be its own parent.");
+    }
+  }
+}
+
 export function updateIssue(db: Database.Database, id: string, input: UpdateIssueInput): Issue | null {
   const existing = getIssue(db, id);
   if (!existing) return null;
+  assertSameProject(db, existing, input);
   const ts = now();
 
   const next = {

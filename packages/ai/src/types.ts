@@ -59,6 +59,8 @@ export interface AgentTurnResult {
   text: string;
   /** Every tool call made during this turn, in order, alongside what executeTool returned for it. */
   toolCalls: { call: ToolCall; result: unknown }[];
+  /** Which model produced this turn, recorded on the agent run for auditability. */
+  model: string | null;
 }
 
 /**

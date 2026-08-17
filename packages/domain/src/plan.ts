@@ -51,10 +51,9 @@ export function confirmPlanTask(
     }),
   );
 
-  decisionsRepo.createDecision(db, {
-    projectId,
+  decisionsRepo.createDecision(db, projectId, {
     title: `Confirmed AI plan: ${input.feature ?? "Untitled feature"}`,
-    description: `Created ${created.length} issue(s): ${created.map((i) => i.key).join(", ")}`,
+    context: `Created ${created.length} issue(s): ${created.map((i) => i.key).join(", ")}`,
   });
 
   return { issues: created, sprintId };

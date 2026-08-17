@@ -181,7 +181,7 @@ export class OllamaProvider implements AIProvider {
       if (rawCalls.length === 0) {
         const text = message.content?.trim();
         if (!text) throw new AIUnavailableError("Ollama returned an empty response.");
-        return { text, toolCalls };
+        return { text, toolCalls, model: body.model ?? model };
       }
 
       messages.push({ role: "assistant", content: message.content ?? "" });
