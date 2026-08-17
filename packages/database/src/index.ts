@@ -11,6 +11,8 @@ export * as codeLinksRepo from "./repositories/code-links.js";
 export * as risksRepo from "./repositories/risks.js";
 export * as decisionsRepo from "./repositories/decisions.js";
 export * as settingsRepo from "./repositories/settings.js";
+export * as agentRunsRepo from "./repositories/agent-runs.js";
 
 export type { CodeLink } from "./repositories/code-links.js";
 export type { Decision } from "./repositories/decisions.js";
+export type { AgentRun } from "./repositories/agent-runs.js";

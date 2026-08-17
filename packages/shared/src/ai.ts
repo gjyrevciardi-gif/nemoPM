@@ -2,7 +2,7 @@ import { z } from "zod";
 import { IssueTypeSchema, PrioritySchema } from "./enums.js";
 
 export const AiStatusRequestSchema = z.object({
-  question: z.string().max(1000).optional(),
+  question: z.string().max(8000).optional(),
 });
 export type AiStatusRequest = z.infer<typeof AiStatusRequestSchema>;
 
@@ -15,7 +15,7 @@ export const AiStatusResponseSchema = z.object({
 export type AiStatusResponse = z.infer<typeof AiStatusResponseSchema>;
 
 export const PlanTaskRequestSchema = z.object({
-  request: z.string().min(3, "Describe the feature or change you want a plan for").max(2000),
+  request: z.string().min(3, "Describe the feature or change you want a plan for").max(8000),
 });
 export type PlanTaskRequest = z.infer<typeof PlanTaskRequestSchema>;
 
@@ -41,5 +41,12 @@ export const ConfirmPlanInputSchema = z.object({
   sprintId: z.string().nullable().optional(),
   tasks: z.array(PlanTaskItemSchema).min(1).max(12),
   feature: z.string().max(200).optional(),
+  /**
+   * When true and `sprintId` is omitted, use the active sprint if one
+   * exists, otherwise create and start a new sprint named after `feature`.
+   * Ignored if `sprintId` is explicitly provided (including `null`, which
+   * always means "leave in backlog").
+   */
+  autoSprint: z.boolean().optional(),
 });
 export type ConfirmPlanInput = z.infer<typeof ConfirmPlanInputSchema>;

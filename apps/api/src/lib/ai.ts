@@ -1,7 +1,7 @@
 import { AIUnavailableError, OllamaProvider } from "@ai-pm/ai";
 import type { AIProvider } from "@ai-pm/ai";
 import { PlanTaskResponseSchema } from "@ai-pm/shared";
-import type { PlanTaskResponse, ProjectState } from "@ai-pm/shared";
+import type { Issue, PlanTaskResponse, ProjectState, Sprint } from "@ai-pm/shared";
 
 let provider: AIProvider | null = null;
 
@@ -20,7 +20,7 @@ const SYSTEM_PROMPT = [
   "If information is missing or a risk has no clear fix, say so plainly instead of guessing.",
 ].join(" ");
 
-function summarizeStateForPrompt(state: ProjectState): string {
+export function summarizeStateForPrompt(state: ProjectState): string {
   const lines: string[] = [];
   lines.push(`Project: ${state.project.name} (${state.project.key})`);
   lines.push(
@@ -195,3 +195,42 @@ export async function generatePlanTask(state: ProjectState, request: string): Pr
     temperature: 0.3,
   });
 }
+
+/**
+ * Grounds the agent in every issue's actual key so it never invents one --
+ * summarizeStateForPrompt() only covers project-level metrics, not the full
+ * backlog, and the agent's tools address issues by key.
+ */
+export function summarizeIssuesForPrompt(issues: Issue[], sprints: Sprint[]): string {
+  const lines: string[] = [];
+
+  const openSprints = sprints.filter((s) => s.status !== "completed");
+  lines.push(
+    openSprints.length > 0
+      ? `Open sprints: ${openSprints.map((s) => `"${s.name}" (${s.status})`).join(", ")}`
+      : "Open sprints: none.",
+  );
+
+  lines.push(`Issues (${issues.length}):`);
+  for (const issue of issues) {
+    const sprint = issue.sprintId ? sprints.find((s) => s.id === issue.sprintId) : null;
+    lines.push(
+      `- ${issue.key} [${issue.type}] "${issue.title}" -- status: ${issue.status}, priority: ${issue.priority}, ` +
+        `points: ${issue.storyPoints ?? "?"}, sprint: ${sprint ? sprint.name : "none"}`,
+    );
+  }
+
+  return lines.join("\n");
+}
+
+export const AGENT_SYSTEM_PROMPT = [
+  "You are AI PM, a project management assistant with the ability to call tools that read and modify a real project.",
+  "Use ONLY the facts given in the project context -- never invent issue keys, sprint names, or people.",
+  "Always refer to issues by their exact existing key (e.g. ACME-7); never invent a new key yourself, tool calls create keys automatically.",
+  "Some tools execute immediately when you call them. Others are held for the user's explicit approval and will",
+  "tell you they were \"queued for your approval\" -- treat that as done from your side; do not call it again or",
+  "wait for it, just continue with anything else the request needs, then summarize.",
+  "If a tool call fails (e.g. an issue key doesn't exist), do not retry the same call blindly -- read the error and",
+  "either correct it once or explain the problem in your final reply.",
+  "When you are finished, reply with a short, concrete summary of what you did or are proposing. No filler.",
+].join(" ");

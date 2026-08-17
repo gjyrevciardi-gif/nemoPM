@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "concurrently -n api,web -c blue,green \"pnpm --filter @ai-pm/api dev\" \"pnpm --filter @ai-pm/web dev\"",
     "seed": "pnpm --filter @ai-pm/database run seed",
-    "build": "pnpm --filter @ai-pm/shared build && pnpm --filter @ai-pm/database build && pnpm --filter @ai-pm/project-state build && pnpm --filter @ai-pm/ai build && pnpm --filter @ai-pm/api build && pnpm --filter @ai-pm/web build",
+    "build": "pnpm --filter @ai-pm/shared build && pnpm --filter @ai-pm/database build && pnpm --filter @ai-pm/domain build && pnpm --filter @ai-pm/project-state build && pnpm --filter @ai-pm/ai build && pnpm --filter @ai-pm/api build && pnpm --filter @ai-pm/web build",
     "typecheck": "pnpm -r --workspace-concurrency=1 run typecheck",
     "test": "pnpm -r --workspace-concurrency=1 run test"
   },

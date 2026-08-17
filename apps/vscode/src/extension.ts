@@ -3,6 +3,11 @@ import type { IssueType, PlanTaskResponse, ProjectState } from "@ai-pm/shared";
 import { api, ApiClientError } from "./api.js";
 import { SelectionState } from "./state.js";
 import { AiPmTreeProvider } from "./treeProvider.js";
+import { AiPmChatPanel, AiPmChatViewProvider, ChatController } from "./chatProvider.js";
+import { LiveSync } from "./liveSync.js";
+
+/** Long enough to fold a burst of writes (an agent run, a board reorder) into one refresh. */
+const REFRESH_DEBOUNCE_MS = 200;
 
 let outputChannel: vscode.OutputChannel;
 let statusBarItem: vscode.StatusBarItem;
@@ -10,9 +15,27 @@ let statusBarItem: vscode.StatusBarItem;
 export function activate(context: vscode.ExtensionContext) {
   const selection = new SelectionState(context);
   const treeProvider = new AiPmTreeProvider(selection);
+  // When the agent changes the project from chat, the tree view and status
+  // bar must reflect it without the user manually hitting Refresh.
+  const chatController = new ChatController(
+    selection,
+    () => {
+      void treeProvider.refresh();
+      void updateStatusBar(selection);
+    },
+    async () => {
+      await vscode.commands.executeCommand("aiPm.connectProject");
+    },
+  );
+  const chatProvider = new AiPmChatViewProvider(chatController);
   outputChannel = vscode.window.createOutputChannel("AI PM Status");
 
   vscode.window.registerTreeDataProvider("aiPm.sidebar", treeProvider);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider("aiPm.chat", chatProvider, {
+      webviewOptions: { retainContextWhenHidden: true },
+    }),
+  );
 
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   statusBarItem.command = "aiPm.projectStatus";
@@ -21,7 +44,28 @@ export function activate(context: vscode.ExtensionContext) {
   async function refreshAll() {
     await treeProvider.refresh();
     await updateStatusBar(selection);
+    await chatProvider.refreshHeader();
+    await AiPmChatPanel.refreshHeader();
   }
+
+  let refreshTimer: NodeJS.Timeout | undefined;
+  function scheduleRefresh() {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(() => void refreshAll(), REFRESH_DEBOUNCE_MS);
+  }
+
+  // Anything written elsewhere -- the web app, another window, the agent --
+  // arrives here and updates the tree, status bar, and chat header on its own.
+  const liveSync = new LiveSync((event) => {
+    if (event.projectId && event.projectId !== selection.projectId) return;
+    scheduleRefresh();
+  });
+  liveSync.start();
+  context.subscriptions.push(liveSync, {
+    dispose: () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+    },
+  });
 
   async function requireProjectId(): Promise<string | undefined> {
     const id = selection.projectId;
@@ -52,6 +96,10 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   context.subscriptions.push(
+    vscode.commands.registerCommand("aiPm.openChat", () => {
+      AiPmChatPanel.open(chatController);
+    }),
+
     vscode.commands.registerCommand("aiPm.refresh", async () => {
       await refreshAll();
     }),
@@ -62,7 +110,9 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
       await selection.setProject(undefined);
-      vscode.window.showInformationMessage("AI PM: disconnected. Run “AI PM: Connect Project” to link a different one.");
+      vscode.window.showInformationMessage(
+        "AI PM: disconnected. Click the project name in the chat panel to link a different one.",
+      );
       await refreshAll();
     }),
 
@@ -82,6 +132,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      const currentId = selection.projectId;
       const items = [...projects]
         .sort((a, b) => {
           const aMatch = a.repositoryPath === workspaceFolder ? 0 : 1;
@@ -89,15 +140,22 @@ export function activate(context: vscode.ExtensionContext) {
           return aMatch - bMatch;
         })
         .map((p) => ({
-          label: `${p.key}  ${p.name}`,
-          description: p.repositoryPath === workspaceFolder ? "this workspace" : p.repositoryPath ?? "",
+          label: `${p.id === currentId ? "$(check) " : "$(circle-outline) "}${p.key}  ${p.name}`,
+          description:
+            p.id === currentId
+              ? "connected"
+              : p.repositoryPath === workspaceFolder
+                ? "this workspace"
+                : p.repositoryPath ?? "",
           project: p,
         }));
 
       const picked = await vscode.window.showQuickPick(items, {
-        placeHolder: "Select a project to connect",
+        placeHolder: currentId ? "Switch to another project" : "Select a project to connect",
       });
       if (!picked) return;
+      // Re-picking the same project shouldn't throw away the current task.
+      if (picked.project.id === currentId) return;
 
       await selection.setProject(picked.project.id);
 
@@ -297,13 +355,14 @@ export function activate(context: vscode.ExtensionContext) {
       if (choice !== confirmLabel) return;
 
       try {
-        let sprintId = state.sprint?.id ?? null;
-        if (!sprintId) {
-          const sprint = await api.createSprint({ projectId, name: plan.feature, goal: plan.summary });
-          await api.startSprint(sprint.id);
-          sprintId = sprint.id;
-        }
-        const created = await api.confirmPlan(projectId, { sprintId, feature: plan.feature, tasks: plan.tasks });
+        // Sprint-assignment (use the active sprint, or create+start one named
+        // after the feature) is decided server-side by confirmPlanTask, so
+        // this no longer duplicates that decision client-side.
+        const created = await api.confirmPlan(projectId, {
+          autoSprint: true,
+          feature: plan.feature,
+          tasks: plan.tasks,
+        });
         vscode.window.showInformationMessage(
           `AI PM created ${created.length} task(s)${willStartSprint ? ` and started sprint “${plan.feature}”` : ""}. ` +
             `Open http://localhost:5174 to see the board.`,

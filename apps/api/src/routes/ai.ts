@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import { getDb, activitiesRepo, decisionsRepo, issuesRepo } from "@ai-pm/database";
+import { getDb, activitiesRepo } from "@ai-pm/database";
+import { planDomain } from "@ai-pm/domain";
 import { AIUnavailableError } from "@ai-pm/ai";
 import {
   AiStatusRequestSchema,
@@ -60,31 +61,14 @@ export async function aiRoutes(app: FastifyInstance) {
   // Not part of the minimal literal endpoint list, but required to close the
   // product's "Generate plan -> Preview -> Confirm creation" loop: nothing
   // from a generated plan is ever saved until the user explicitly confirms it.
+  // Sprint-assignment decisions live in packages/domain's confirmPlanTask so
+  // every caller (this route, and later the agent) behaves identically.
   app.post<{ Params: { projectId: string } }>(
     "/projects/:projectId/ai/plan-task/confirm",
     async (req, reply) => {
       const input = parseOrThrow(ConfirmPlanInputSchema, req.body);
-
-      const created = input.tasks.map((task) =>
-        issuesRepo.createIssue(db, {
-          projectId: req.params.projectId,
-          type: task.type,
-          title: task.title,
-          description: task.description,
-          status: "backlog",
-          priority: task.priority,
-          storyPoints: task.storyPoints,
-          sprintId: input.sprintId ?? null,
-        }),
-      );
-
-      decisionsRepo.createDecision(db, {
-        projectId: req.params.projectId,
-        title: `Confirmed AI plan: ${input.feature ?? "Untitled feature"}`,
-        description: `Created ${created.length} issue(s): ${created.map((i) => i.key).join(", ")}`,
-      });
-
-      reply.status(201).send(created);
+      const result = planDomain.confirmPlanTask(db, req.params.projectId, input);
+      reply.status(201).send(result.issues);
     },
   );
 }

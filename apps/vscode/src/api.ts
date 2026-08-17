@@ -1,5 +1,7 @@
 import * as vscode from "vscode";
 import type {
+  AgentApplyResponse,
+  AgentResponse,
   AiStatusResponse,
   ConfirmPlanInput,
   CreateIssueInput,
@@ -14,7 +16,7 @@ import type {
 
 export class ApiClientError extends Error {}
 
-function baseUrl(): string {
+export function baseUrl(): string {
   return vscode.workspace.getConfiguration("aiPm").get<string>("apiUrl", "http://127.0.0.1:43821");
 }
 
@@ -69,11 +71,17 @@ export const api = {
 
   getProjectState: (projectId: string) => request<ProjectState>(`/projects/${projectId}/state`),
 
-  getAiStatus: (projectId: string) => post<AiStatusResponse>(`/projects/${projectId}/ai/status`, {}),
+  getAiStatus: (projectId: string, question?: string) =>
+    post<AiStatusResponse>(`/projects/${projectId}/ai/status`, question ? { question } : {}),
   planTask: (projectId: string, taskRequest: string) =>
     post<PlanTaskResponse>(`/projects/${projectId}/ai/plan-task`, { request: taskRequest }),
   confirmPlan: (projectId: string, input: ConfirmPlanInput) =>
     post<Issue[]>(`/projects/${projectId}/ai/plan-task/confirm`, input),
+
+  runAgent: (projectId: string, message: string) =>
+    post<AgentResponse>(`/projects/${projectId}/agent`, { message }),
+  applyAgentRun: (projectId: string, runId: string) =>
+    post<AgentApplyResponse>(`/projects/${projectId}/agent/${runId}/apply`),
 
   listSprints: (projectId: string) => request<Sprint[]>(`/projects/${projectId}/sprints`),
   createSprint: (input: CreateSprintInput) => post<Sprint>("/sprints", input),

@@ -127,7 +127,10 @@ export class AiPmTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem
     const items: vscode.TreeItem[] = [];
 
     items.push(header("PROJECT"));
-    items.push(valueItem(project.name, project.key));
+    const projectItem = valueItem(project.name, project.key);
+    projectItem.command = { command: "aiPm.connectProject", title: "Switch project" };
+    projectItem.tooltip = "Click to switch to another project";
+    items.push(projectItem);
 
     items.push(header("CURRENT TASK"));
     items.push(

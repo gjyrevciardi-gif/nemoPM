@@ -1,8 +1,8 @@
 {
   "name": "ai-pm-extension",
   "displayName": "AI PM",
-  "description": "AI Project Manager companion: connect a repo, track your current task, and keep project context in sync from VS Code.",
-  "version": "0.1.2",
+  "description": "AI Project Manager companion: connect a repo, track your current task, and manage the project from a chat panel that can actually make changes.",
+  "version": "0.3.0",
   "private": true,
   "publisher": "local",
   "engines": {
@@ -24,8 +24,14 @@
     "views": {
       "aiPm": [
         {
+          "type": "webview",
+          "id": "aiPm.chat",
+          "name": "Ask AI PM",
+          "contextualTitle": "AI PM"
+        },
+        {
           "id": "aiPm.sidebar",
-          "name": "AI PM",
+          "name": "Project",
           "contextualTitle": "AI PM"
         }
       ]
@@ -37,7 +43,7 @@
       }
     ],
     "commands": [
-      { "command": "aiPm.connectProject", "title": "AI PM: Connect Project" },
+      { "command": "aiPm.connectProject", "title": "AI PM: Connect or Switch Project" },
       { "command": "aiPm.disconnectProject", "title": "AI PM: Disconnect Project" },
       { "command": "aiPm.selectCurrentTask", "title": "AI PM: Select Current Task" },
       { "command": "aiPm.startCurrentTask", "title": "AI PM: Start Current Task" },
@@ -47,10 +53,16 @@
       { "command": "aiPm.scanGitActivity", "title": "AI PM: Scan Git Activity" },
       { "command": "aiPm.projectStatus", "title": "AI PM: Project Status" },
       { "command": "aiPm.askAiPm", "title": "AI PM: Ask AI PM", "icon": "$(comment-discussion)" },
+      { "command": "aiPm.openChat", "title": "AI PM: Open Chat Panel", "icon": "$(link-external)" },
       { "command": "aiPm.refresh", "title": "AI PM: Refresh", "icon": "$(refresh)" }
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "aiPm.openChat",
+          "when": "view == aiPm.chat",
+          "group": "navigation"
+        },
         {
           "command": "aiPm.askAiPm",
           "when": "view == aiPm.sidebar",
