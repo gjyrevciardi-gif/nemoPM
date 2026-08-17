@@ -1,11 +1,14 @@
 import * as vscode from "vscode";
 import type {
   AiStatusResponse,
+  ConfirmPlanInput,
   CreateIssueInput,
+  CreateSprintInput,
   Issue,
   PlanTaskResponse,
   Project,
   ProjectState,
+  Sprint,
   UpdateProjectInput,
 } from "@ai-pm/shared";
 
@@ -69,4 +72,10 @@ export const api = {
   getAiStatus: (projectId: string) => post<AiStatusResponse>(`/projects/${projectId}/ai/status`, {}),
   planTask: (projectId: string, taskRequest: string) =>
     post<PlanTaskResponse>(`/projects/${projectId}/ai/plan-task`, { request: taskRequest }),
+  confirmPlan: (projectId: string, input: ConfirmPlanInput) =>
+    post<Issue[]>(`/projects/${projectId}/ai/plan-task/confirm`, input),
+
+  listSprints: (projectId: string) => request<Sprint[]>(`/projects/${projectId}/sprints`),
+  createSprint: (input: CreateSprintInput) => post<Sprint>("/sprints", input),
+  startSprint: (id: string) => post<Sprint>(`/sprints/${id}/start`),
 };

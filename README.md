@@ -27,7 +27,10 @@ without silently completing your work for you.
   saved until you explicitly confirm.
 - **VS Code extension** -- a sidebar showing your project/current task/sprint/risks, plus commands
   to connect a project, select/start/review/complete your current task, create tasks, scan Git
-  activity, and get an AI status report -- all from the editor.
+  activity, and get an AI status report -- all from the editor. **Ask AI PM** lets you type a free-
+  form request ("organize my sprint", "plan the login page") and, after you confirm the generated
+  plan, it creates the tasks and starts a sprint for them automatically -- the same
+  generate-plan/confirm API the web app uses, just one step from the editor.
 
 ## Architecture
 
@@ -35,7 +38,7 @@ without silently completing your work for you.
 apps/
   api/      Fastify + Zod REST API (port 43821)
   web/      React + Vite + Tailwind board/dashboard (port 5173)
-  vscode/   VS Code extension (sidebar + 9 commands)
+  vscode/   VS Code extension (sidebar + 10 commands)
 packages/
   database/       SQLite (better-sqlite3) schema, migrations, repositories, seed script
   shared/         Zod schemas + inferred types shared by every app
@@ -180,8 +183,15 @@ workspace (this is the standard way to develop a VS Code extension):
 10. Run **AI PM: Project Status** -- opens an output channel with a concise status (real AI or
     offline summary, clearly labeled).
 11. Run **AI PM: Complete Current Task** -- refresh the web board; the issue is now in Done.
+12. Run **AI PM: Ask AI PM** (also available as the speech-bubble icon in the sidebar title bar) --
+    type a request like "organize my sprint" or "plan the password reset flow". AI PM asks the
+    local model for a plan and shows it in the **AI PM Status** output panel (feature, tasks with
+    points/priority, risks, dependencies). Confirm the modal prompt and it creates the tasks and --
+    if no sprint is active yet -- creates and starts one for them, exactly like generating a plan and
+    clicking Confirm in the web app, just in one step. Nothing is created until you confirm; if
+    Ollama is offline the command fails clearly instead of inventing a plan.
 
-All 9 commands are also reachable from the Command Palette by typing "AI PM". The API URL is
+All 10 commands are also reachable from the Command Palette by typing "AI PM". The API URL is
 configurable via the `aiPm.apiUrl` setting (default `http://127.0.0.1:43821`).
 
 ## Environment variables reference

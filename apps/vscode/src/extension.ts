@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import type { IssueType } from "@ai-pm/shared";
+import type { IssueType, PlanTaskResponse, ProjectState } from "@ai-pm/shared";
 import { api, ApiClientError } from "./api.js";
 import { SelectionState } from "./state.js";
 import { AiPmTreeProvider } from "./treeProvider.js";
@@ -234,6 +234,74 @@ export function activate(context: vscode.ExtensionContext) {
         outputChannel.appendLine(err instanceof ApiClientError ? err.message : String(err));
         showApiError(err);
       }
+    }),
+
+    vscode.commands.registerCommand("aiPm.askAiPm", async () => {
+      const projectId = await requireProjectId();
+      if (!projectId) return;
+
+      const requestText = await vscode.window.showInputBox({
+        prompt: "What do you want AI PM to do?",
+        placeHolder: "e.g. organize my sprint, plan the login page, add tasks for password reset",
+        ignoreFocusOut: true,
+      });
+      if (!requestText?.trim()) return;
+
+      let plan: PlanTaskResponse;
+      let state: ProjectState;
+      try {
+        [plan, state] = await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: "AI PM is planning…", cancellable: false },
+          () => Promise.all([api.planTask(projectId, requestText.trim()), api.getProjectState(projectId)]),
+        );
+      } catch (err) {
+        showApiError(err);
+        return;
+      }
+
+      outputChannel.clear();
+      outputChannel.appendLine(`AI PM plan: ${plan.feature}`);
+      outputChannel.appendLine(plan.summary);
+      outputChannel.appendLine("");
+      outputChannel.appendLine("Tasks:");
+      for (const t of plan.tasks) {
+        outputChannel.appendLine(`  [${t.type}] ${t.title} — ${t.storyPoints} pts, ${t.priority} priority`);
+      }
+      if (plan.risks.length > 0) {
+        outputChannel.appendLine("\nRisks:");
+        for (const r of plan.risks) outputChannel.appendLine(`  - ${r}`);
+      }
+      if (plan.dependencies.length > 0) {
+        outputChannel.appendLine("\nDependencies:");
+        for (const d of plan.dependencies) outputChannel.appendLine(`  - ${d}`);
+      }
+      outputChannel.show(true);
+
+      const willStartSprint = !state.sprint;
+      const confirmLabel = willStartSprint ? "Create Tasks & Start Sprint" : `Add to “${state.sprint!.name}”`;
+      const choice = await vscode.window.showInformationMessage(
+        `AI PM plans ${plan.tasks.length} task(s) for “${plan.feature}” — see the AI PM Status output panel for details.`,
+        { modal: true },
+        confirmLabel,
+      );
+      if (choice !== confirmLabel) return;
+
+      try {
+        let sprintId = state.sprint?.id ?? null;
+        if (!sprintId) {
+          const sprint = await api.createSprint({ projectId, name: plan.feature, goal: plan.summary });
+          await api.startSprint(sprint.id);
+          sprintId = sprint.id;
+        }
+        const created = await api.confirmPlan(projectId, { sprintId, feature: plan.feature, tasks: plan.tasks });
+        vscode.window.showInformationMessage(
+          `AI PM created ${created.length} task(s)${willStartSprint ? ` and started sprint “${plan.feature}”` : ""}. ` +
+            `Open http://localhost:5173 to see the board.`,
+        );
+      } catch (err) {
+        showApiError(err);
+      }
+      await refreshAll();
     }),
   );
 
