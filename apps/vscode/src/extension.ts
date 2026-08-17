@@ -76,7 +76,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
       if (projects.length === 0) {
         vscode.window.showInformationMessage(
-          "No projects exist yet. Create one from the web app at http://localhost:5173, then connect it here.",
+          "No projects exist yet. Create one from the web app at http://localhost:5174, then connect it here.",
         );
         return;
       }
@@ -306,7 +306,7 @@ export function activate(context: vscode.ExtensionContext) {
         const created = await api.confirmPlan(projectId, { sprintId, feature: plan.feature, tasks: plan.tasks });
         vscode.window.showInformationMessage(
           `AI PM created ${created.length} task(s)${willStartSprint ? ` and started sprint “${plan.feature}”` : ""}. ` +
-            `Open http://localhost:5173 to see the board.`,
+            `Open http://localhost:5174 to see the board.`,
         );
       } catch (err) {
         showApiError(err);

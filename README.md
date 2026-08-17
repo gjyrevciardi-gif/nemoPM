@@ -37,7 +37,7 @@ without silently completing your work for you.
 ```
 apps/
   api/      Fastify + Zod REST API (port 43821)
-  web/      React + Vite + Tailwind board/dashboard (port 5173)
+  web/      React + Vite + Tailwind board/dashboard (port 5174)
   vscode/   VS Code extension (sidebar + 10 commands)
 packages/
   database/       SQLite (better-sqlite3) schema, migrations, repositories, seed script
@@ -143,7 +143,7 @@ seed` is a no-op if the project already exists; delete `data/ai-pm.db` for a tru
 pnpm dev
 ```
 
-Starts the API (`http://127.0.0.1:43821`) and the web app (`http://localhost:5173`) together. Open
+Starts the API (`http://127.0.0.1:43821`) and the web app (`http://localhost:5174`) together. Open
 the web app, click into **Acme SaaS**, and use the Board / Backlog / Activity tabs.
 
 ## Ollama setup (optional, for real AI responses)

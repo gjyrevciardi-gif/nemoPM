@@ -109,7 +109,7 @@ function main() {
       .join(", ")}`,
   );
   console.log(`  Dependency: ${passwordRecovery.key} depends on ${login.key}`);
-  console.log("\nRun `pnpm dev` and open http://localhost:5173 to see the board.");
+  console.log("\nRun `pnpm dev` and open http://localhost:5174 to see the board.");
 }
 
 main();

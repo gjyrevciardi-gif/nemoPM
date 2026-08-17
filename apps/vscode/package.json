@@ -2,7 +2,7 @@
   "name": "ai-pm-extension",
   "displayName": "AI PM",
   "description": "AI Project Manager companion: connect a repo, track your current task, and keep project context in sync from VS Code.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "publisher": "local",
   "engines": {
