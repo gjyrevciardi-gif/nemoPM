@@ -2,12 +2,14 @@ import type Database from "better-sqlite3";
 import { decisionsRepo, milestonesRepo, projectNotesRepo } from "@ai-pm/database";
 import type { Decision, Milestone, ProjectNote } from "@ai-pm/shared";
 
-export const { createDecision, listDecisionsByProject, getDecision, deleteDecision } = decisionsRepo;
+export const { createDecision, listDecisionsByProject, getDecision, updateDecision, deleteDecision } =
+  decisionsRepo;
 export const {
   createMilestone,
   listMilestonesByProject,
   getMilestone,
   confirmMilestone,
+  completeMilestone,
   updateMilestone,
   deleteMilestone,
 } = milestonesRepo;

@@ -30,6 +30,7 @@ export function toolContext(
         throw new Error("projectState is an API-level service and is not stubbed here.");
       },
       gitStatus: async () => OFFLINE_GIT,
+      portfolioState: async () => ({ generatedAt: new Date().toISOString(), projects: [] }),
     },
     ...overrides,
   };

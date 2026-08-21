@@ -3,6 +3,7 @@ import type {
   AgentApplyResponse,
   AgentResponse,
   AiStatusResponse,
+  CodeContext,
   ConfirmPlanInput,
   CreateIssueInput,
   CreateSprintInput,
@@ -78,8 +79,8 @@ export const api = {
   confirmPlan: (projectId: string, input: ConfirmPlanInput) =>
     post<Issue[]>(`/projects/${projectId}/ai/plan-task/confirm`, input),
 
-  runAgent: (projectId: string, message: string) =>
-    post<AgentResponse>(`/projects/${projectId}/agent`, { message }),
+  runAgent: (projectId: string, message: string, codeContext?: CodeContext | null) =>
+    post<AgentResponse>(`/projects/${projectId}/agent`, codeContext ? { message, codeContext } : { message }),
   applyAgentRun: (projectId: string, runId: string) =>
     post<AgentApplyResponse>(`/projects/${projectId}/agent/${runId}/apply`),
   rejectAgentRun: (projectId: string, runId: string) =>

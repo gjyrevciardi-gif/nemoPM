@@ -20,12 +20,22 @@ const DENIED_PATH_PATTERNS: RegExp[] = [
   /\.(png|jpe?g|gif|pdf|zip|tar|gz|exe|dll|so|dylib)$/i,
 ];
 
-/** Line-level redaction for credentials that live inside otherwise-fine files. */
+/**
+ * Line-level redaction for credentials inside otherwise-fine files.
+ *
+ * These match a credential *value*, not a credential *word*. Matching the word
+ * alone redacted half of any authentication file -- `const token = verify(req)`
+ * is exactly the code someone means when they say "create a bug for this", and
+ * blanking it made the feature useless while protecting nothing.
+ */
 const SECRET_LINE_PATTERNS: RegExp[] = [
-  /(api[_-]?key|secret|password|passwd|token|bearer|authorization|private[_-]?key|client[_-]?secret)/i,
+  // A secret-ish name assigned a quoted literal: API_KEY = "sk-live-…".
+  /(api[_-]?key|secret|password|passwd|token|bearer|auth(?:orization)?|private[_-]?key|client[_-]?secret)\s*[:=]\s*["'`][^"'`\s]{8,}["'`]/i,
   /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
-  /\b(sk|pk|ghp|gho|xox[baprs])[-_][A-Za-z0-9]{16,}\b/,
-  /\b[A-Za-z0-9+/]{40,}={0,2}\b/, // long base64-ish blobs
+  // Provider-issued tokens are recognizable on their own, quoted or not.
+  /\b(sk|pk|ghp|gho|ghs|xox[baprs])[-_][A-Za-z0-9]{16,}\b/,
+  /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\./, // JWTs
+  /\b[A-Za-z0-9+/]{60,}={0,2}\b/, // long base64-ish blobs
   /:\/\/[^\s:@/]+:[^\s@/]+@/, // credentials embedded in a URL
 ];
 

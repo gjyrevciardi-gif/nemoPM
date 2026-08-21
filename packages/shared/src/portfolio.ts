@@ -23,6 +23,9 @@ export const ProjectSummarySchema = z.object({
   openIssues: z.number(),
   doneIssues: z.number(),
   inProgressIssues: z.number(),
+  /** Completed points over total points, 0-100; falls back to issue counts when nothing is estimated. */
+  progressPercent: z.number(),
+  repositoryConnected: z.boolean(),
   /** Issues that can't start because something they depend on isn't done. */
   blockedIssues: z.number(),
   risks: z.object({ high: z.number(), medium: z.number(), low: z.number() }),

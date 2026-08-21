@@ -3,6 +3,7 @@ import { ISSUE_TOOLS } from "./issue-tools.js";
 import { SPRINT_TOOLS } from "./sprint-tools.js";
 import { READ_TOOLS } from "./read-tools.js";
 import { MEMORY_TOOLS, PROJECT_TOOLS } from "./memory-tools.js";
+import { PORTFOLIO_TOOLS } from "./portfolio-tools.js";
 import type { AgentTool, ReadTool, WriteTool } from "./types.js";
 
 /**
@@ -38,4 +39,16 @@ export function isReadTool(tool: AgentTool): tool is ReadTool {
 
 export function isWriteTool(tool: AgentTool): tool is WriteTool {
   return tool.kind === "write";
+}
+
+/**
+ * The portfolio agent's surface: reads only. Cross-project writes are not
+ * exposed at all, so a vague instruction can never touch several projects --
+ * mutations happen in a single project's agent, where one approval covers one
+ * blast radius.
+ */
+export const PORTFOLIO_AGENT_TOOLS: AgentTool[] = [...PORTFOLIO_TOOLS];
+
+export function getPortfolioTool(name: string): AgentTool | undefined {
+  return PORTFOLIO_AGENT_TOOLS.find((tool) => tool.name === name);
 }

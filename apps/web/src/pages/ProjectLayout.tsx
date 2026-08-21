@@ -8,6 +8,9 @@ const TABS = [
   { to: "board", label: "Board", end: false },
   { to: "backlog", label: "Backlog", end: false },
   { to: "activity", label: "Activity", end: false },
+  { to: "decisions", label: "Decisions", end: false },
+  { to: "history", label: "History", end: false },
+  { to: "ai", label: "AI", end: false },
   { to: "settings", label: "Settings", end: false },
 ];
 

@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 import type { z } from "zod";
-import type { CodeContext, GitStatus, PermissionTier, ProjectState } from "@ai-pm/shared";
+import type { CodeContext, GitStatus, PermissionTier, PortfolioState, ProjectState } from "@ai-pm/shared";
 
 export interface JsonSchemaProperty {
   type: string;
@@ -23,6 +23,8 @@ export interface JsonSchema {
 export interface ToolServices {
   projectState(projectId: string): Promise<ProjectState>;
   gitStatus(projectId: string): Promise<GitStatus>;
+  /** Deterministic cross-project summary. Used by the portfolio agent. */
+  portfolioState(): Promise<PortfolioState>;
 }
 
 export interface ToolContext {

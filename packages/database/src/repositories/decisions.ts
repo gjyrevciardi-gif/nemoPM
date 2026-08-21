@@ -86,3 +86,25 @@ export function listDecisionsByProject(db: Database.Database, projectId: string)
 export function deleteDecision(db: Database.Database, id: string): boolean {
   return db.prepare("DELETE FROM decisions WHERE id = ?").run(id).changes > 0;
 }
+
+/** Human edits from the Decisions UI; the agent only ever creates. */
+export function updateDecision(
+  db: Database.Database,
+  id: string,
+  input: Partial<CreateDecisionInput>,
+): Decision {
+  const existing = getDecisionOrThrow(db, id);
+  db.prepare(
+    `UPDATE decisions SET title = ?, context = ?, decision = ?, rationale = ?, issue_id = ?, decided_at = ?
+     WHERE id = ?`,
+  ).run(
+    input.title ?? existing.title,
+    input.context !== undefined ? input.context : existing.context,
+    input.decision !== undefined ? input.decision : existing.decision,
+    input.rationale !== undefined ? input.rationale : existing.rationale,
+    input.issueId !== undefined ? input.issueId : existing.issueId,
+    input.decidedAt ?? existing.decidedAt,
+    id,
+  );
+  return getDecisionOrThrow(db, id);
+}

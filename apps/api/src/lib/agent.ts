@@ -23,6 +23,7 @@ import { buildProjectState } from "./state.js";
 import { getGitStatus } from "./git.js";
 import { getAIProvider, AGENT_SYSTEM_PROMPT } from "./ai.js";
 import { describeCodeContext, sanitizeCodeContext } from "./code-context.js";
+import { buildPortfolioState } from "./portfolio.js";
 import { repositoriesRepo, projectsRepo } from "@ai-pm/database";
 
 /** How much of the project goes into the prompt before the agent must look things up itself. */
@@ -53,6 +54,9 @@ function buildToolContext(db: Database.Database, projectId: string | null, codeC
         const repo = repositoriesRepo.getRepositoryByProject(db, id);
         return getGitStatus(repo?.path ?? project?.repositoryPath ?? null);
       },
+      // Available to the context, unused by project tools: a project turn has
+      // no business reading other projects, and no project tool asks for it.
+      portfolioState: async () => buildPortfolioState(db),
     },
   };
 }

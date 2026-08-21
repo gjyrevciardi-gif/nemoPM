@@ -12,6 +12,8 @@ import { stateRoutes } from "./routes/state.js";
 import { riskRoutes } from "./routes/risks.js";
 import { aiRoutes } from "./routes/ai.js";
 import { agentRoutes } from "./routes/agent.js";
+import { portfolioRoutes } from "./routes/portfolio.js";
+import { memoryRoutes } from "./routes/memory.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { eventRoutes } from "./routes/events.js";
 import { publishChange } from "./lib/events.js";
@@ -97,6 +99,8 @@ export function buildServer() {
   app.register(aiRoutes);
   app.register(agentRoutes);
   app.register(settingsRoutes);
+  app.register(portfolioRoutes);
+  app.register(memoryRoutes);
   app.register(eventRoutes);
 
   return app;

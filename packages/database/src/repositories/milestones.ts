@@ -11,6 +11,8 @@ interface MilestoneRow {
   status: string;
   source: string;
   confirmed: number;
+  target_date: string | null;
+  completed_at: string | null;
   occurred_at: string;
   created_at: string;
 }
@@ -24,6 +26,8 @@ function toMilestone(row: MilestoneRow): Milestone {
     status: row.status as Milestone["status"],
     source: row.source as Milestone["source"],
     confirmed: row.confirmed === 1,
+    targetDate: row.target_date,
+    completedAt: row.completed_at,
     occurredAt: row.occurred_at,
     createdAt: row.created_at,
   };
@@ -41,18 +45,21 @@ export function createMilestone(
   // confirms it -- history is never written automatically.
   const confirmed = input.confirmed ?? source === "manual";
 
+  const status = input.status ?? "planned";
   db.prepare(
     `INSERT INTO milestones (
-       id, project_id, title, description, status, source, confirmed, occurred_at, created_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       id, project_id, title, description, status, source, confirmed, target_date, completed_at, occurred_at, created_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     projectId,
     input.title,
     input.description ?? null,
-    input.status ?? "planned",
+    status,
     source,
     confirmed ? 1 : 0,
+    input.targetDate ?? null,
+    status === "reached" ? ts : null,
     input.occurredAt ?? ts,
     ts,
   );
@@ -104,16 +111,47 @@ export function confirmMilestone(db: Database.Database, id: string): Milestone {
 export function updateMilestone(
   db: Database.Database,
   id: string,
-  input: { title?: string; description?: string | null; status?: Milestone["status"]; occurredAt?: string },
+  input: {
+    title?: string;
+    description?: string | null;
+    status?: Milestone["status"];
+    targetDate?: string | null;
+    occurredAt?: string;
+  },
 ): Milestone {
   const existing = getMilestoneOrThrow(db, id);
-  db.prepare("UPDATE milestones SET title = ?, description = ?, status = ?, occurred_at = ? WHERE id = ?").run(
+  const status = input.status ?? existing.status;
+  db.prepare(
+    `UPDATE milestones SET title = ?, description = ?, status = ?, target_date = ?, completed_at = ?, occurred_at = ?
+     WHERE id = ?`,
+  ).run(
     input.title ?? existing.title,
     input.description !== undefined ? input.description : existing.description,
-    input.status ?? existing.status,
+    status,
+    input.targetDate !== undefined ? input.targetDate : existing.targetDate,
+    // Moving back to planned clears the completion date rather than leaving a
+    // milestone that is "planned" but claims a date it was reached.
+    status === "reached" ? (existing.completedAt ?? now()) : null,
     input.occurredAt ?? existing.occurredAt,
     id,
   );
+  return getMilestoneOrThrow(db, id);
+}
+
+/** Marks a milestone reached, stamping when. */
+export function completeMilestone(db: Database.Database, id: string): Milestone {
+  const existing = getMilestoneOrThrow(db, id);
+  const ts = now();
+  db.prepare("UPDATE milestones SET status = 'reached', completed_at = ?, occurred_at = ? WHERE id = ?").run(
+    ts,
+    ts,
+    id,
+  );
+  recordActivity(db, {
+    projectId: existing.projectId,
+    type: "milestone.confirmed",
+    payload: { title: existing.title, reached: true },
+  });
   return getMilestoneOrThrow(db, id);
 }
 

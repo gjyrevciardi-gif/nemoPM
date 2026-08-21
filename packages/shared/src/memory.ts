@@ -51,6 +51,10 @@ export const MilestoneSchema = z.object({
   status: MilestoneStatusSchema,
   source: z.enum(["manual", "inferred"]),
   confirmed: z.boolean(),
+  /** When it is aimed at, if anyone said. */
+  targetDate: z.string().nullable(),
+  /** When it was actually reached. */
+  completedAt: z.string().nullable(),
   occurredAt: z.string(),
   createdAt: z.string(),
 });
@@ -62,6 +66,7 @@ export const CreateMilestoneInputSchema = z.object({
   status: MilestoneStatusSchema.optional(),
   source: z.enum(["manual", "inferred"]).optional(),
   confirmed: z.boolean().optional(),
+  targetDate: z.string().max(40).nullable().optional(),
   occurredAt: z.string().optional(),
 });
 export type CreateMilestoneInput = z.infer<typeof CreateMilestoneInputSchema>;
