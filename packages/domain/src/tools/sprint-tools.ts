@@ -309,26 +309,22 @@ const planSprintSchema = z.object({
 const planSprintTool: WriteTool<z.infer<typeof planSprintSchema>> = {
   name: "planSprint",
   kind: "write",
+  // Descriptions are prompt cost paid on every tool-calling round trip, so they
+  // carry only what the model needs to choose correctly: when to pick this tool
+  // and the one rule it must respect.
   description:
-    "Create the next sprint: pull in the chosen existing issues, optionally carry unfinished work from the " +
-    "active sprint, optionally complete the active sprint, and start it. Use this for any 'plan the next sprint' request. " +
-    "A project can only have one active sprint, so starting a new one requires completing the current one.",
+    "Plan the next sprint: create it, add the given issues, optionally carry unfinished work over, and start it. " +
+    "Only one sprint can be active, so starting one requires completeActiveSprint.",
   tier: "ask",
   parameters: {
     type: "object",
     properties: {
-      name: { type: "string", description: 'Sprint name, e.g. "Sprint 12"' },
+      name: { type: "string" },
       goal: { type: "string" },
-      issueKeys: { type: "array", items: { type: "string" }, description: "Existing issue keys to include" },
-      carryOverFromActiveSprint: {
-        type: "boolean",
-        description: "Also move unfinished issues from the current active sprint into this one",
-      },
-      completeActiveSprint: {
-        type: "boolean",
-        description: "Complete the currently active sprint as part of this plan (required to start a new one)",
-      },
-      start: { type: "boolean", description: "Start the new sprint immediately (default true)" },
+      issueKeys: { type: "array", items: { type: "string" }, description: "Existing issue keys" },
+      carryOverFromActiveSprint: { type: "boolean", description: "Move unfinished work from the active sprint" },
+      completeActiveSprint: { type: "boolean", description: "Close the active sprint as part of this plan" },
+      start: { type: "boolean", description: "Start it now (default true)" },
     },
     required: ["name"],
   },

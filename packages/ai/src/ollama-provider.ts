@@ -16,6 +16,8 @@ export interface OllamaProviderOptions {
   /** If omitted, the provider auto-detects the first locally available model on first use. */
   model?: string;
   timeoutMs?: number;
+  /** Context window to request. Must fit the tool schemas plus the project snapshot. */
+  contextTokens?: number;
 }
 
 interface OllamaToolCallBody {
@@ -36,6 +38,7 @@ const DEFAULT_MAX_STEPS = 6;
 export class OllamaProvider implements AIProvider {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
+  private readonly contextTokens: number;
   private configuredModel: string | undefined;
   private resolvedModel: string | null = null;
 
@@ -49,7 +52,8 @@ export class OllamaProvider implements AIProvider {
     // hardware once the model needs a cold load (observed 65s total for an
     // 8B model's first response, ~19s of which was just loading weights).
     // Tool-calling agent turns can take several such round trips.
-    this.timeoutMs = options.timeoutMs ?? 120_000;
+    this.timeoutMs = options.timeoutMs ?? (Number(process.env.OLLAMA_TIMEOUT_MS) || 120_000);
+    this.contextTokens = options.contextTokens ?? (Number(process.env.OLLAMA_NUM_CTX) || 8192);
   }
 
   private async resolveModel(): Promise<string> {
@@ -100,6 +104,14 @@ export class OllamaProvider implements AIProvider {
           ...(options.tools ? { tools: options.tools } : {}),
           options: {
             temperature: options.temperature ?? 0.2,
+            // Ollama defaults to a small context (4k for llama3.1). NEMO's
+            // agent turns carry a tool-schema block of ~3.4k tokens plus the
+            // project snapshot, which overflows that -- and Ollama truncates
+            // from the front, silently dropping the system prompt's grounding
+            // and safety rules. Asking for the window we actually need is the
+            // difference between an agent that sees its instructions and one
+            // that doesn't.
+            num_ctx: this.contextTokens,
           },
         }),
       });

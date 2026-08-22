@@ -30,7 +30,13 @@ import { repositoriesRepo, projectsRepo } from "@ai-pm/database";
 const MAX_CONTEXT_ISSUES = 40;
 /** A proposal computed against a project an hour ago is evidence about a project that has moved. */
 const RUN_TTL_MS = 60 * 60 * 1000;
-const MAX_TOOL_STEPS = 8;
+/**
+ * Tool-calling round trips per turn. Each one re-sends the growing
+ * conversation to the model, so on CPU-only local hardware this is the single
+ * biggest lever on how long a turn takes -- hence the env override, which the
+ * evaluation harness uses to keep a scenario bounded.
+ */
+const MAX_TOOL_STEPS = Number(process.env.AGENT_MAX_STEPS) || 8;
 
 const PRIORITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 

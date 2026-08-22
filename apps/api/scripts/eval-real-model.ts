@@ -24,6 +24,29 @@ import type { AgentResponse, AgentToolCallRecord } from "@ai-pm/shared";
 const DB_PATH = path.join(os.tmpdir(), `nemo-eval-${Date.now()}.db`);
 process.env.DATABASE_PATH = DB_PATH;
 
+/**
+ * A local 8B model on CPU can spend minutes on a single turn, and each
+ * tool-calling round trip re-sends the whole conversation. Without a bound, one
+ * indecisive scenario can outlast the entire run, so every scenario gets a wall
+ * clock and the model gets a per-call timeout and a step cap.
+ */
+const SCENARIO_TIMEOUT_MS = Number(process.env.EVAL_SCENARIO_TIMEOUT_MS) || 240_000;
+process.env.OLLAMA_TIMEOUT_MS ??= "90000";
+process.env.AGENT_MAX_STEPS ??= "4";
+
+/** Written with writeSync so progress is visible live, not buffered until exit. */
+function log(line: string): void {
+  fs.writeSync(1, `${line}\n`);
+}
+
+async function withTimeout<T>(work: Promise<T>, ms: number): Promise<T | { timedOut: true }> {
+  let timer: NodeJS.Timeout;
+  const timeout = new Promise<{ timedOut: true }>((resolve) => {
+    timer = setTimeout(() => resolve({ timedOut: true }), ms);
+  });
+  return Promise.race([work.finally(() => clearTimeout(timer)), timeout]);
+}
+
 type Failure = "INFRASTRUCTURE" | "MODEL" | "TOOL-SCHEMA" | "PROMPT";
 
 interface Grade {
@@ -278,7 +301,7 @@ async function main() {
   };
 
   const model = process.env.OLLAMA_MODEL ?? "(auto-detected)";
-  console.log(`\nNEMO real-model evaluation — model: ${model}\n${"=".repeat(64)}`);
+  log(`\nNEMO real-model evaluation — model: ${model}\n${"=".repeat(64)}`);
 
   const rows: {
     name: string;
@@ -292,37 +315,45 @@ async function main() {
     reply: string;
   }[] = [];
 
-  for (const scenario of SCENARIOS) {
+  const only = process.env.EVAL_ONLY?.split(",").map((s) => s.trim().toLowerCase());
+  const scenarios = only ? SCENARIOS.filter((s) => only.includes(s.name.toLowerCase())) : SCENARIOS;
+
+  for (const [index, scenario] of scenarios.entries()) {
+    log(`\n[${index + 1}/${scenarios.length}] ${scenario.name} — "${scenario.message}"`);
     const started = Date.now();
     let result: AgentResponse | null = null;
     let infraError: string | null = null;
+    let timedOut = false;
 
     try {
-      const res = await app.inject({
-        method: "POST",
-        url: `/projects/${project.id}/agent`,
-        payload: { message: scenario.message },
-      });
-      if (res.statusCode === 200) result = res.json();
-      else infraError = `HTTP ${res.statusCode}: ${JSON.stringify(res.json()).slice(0, 160)}`;
+      const outcome = await withTimeout(
+        app.inject({
+          method: "POST",
+          url: `/projects/${project.id}/agent`,
+          payload: { message: scenario.message },
+        }),
+        SCENARIO_TIMEOUT_MS,
+      );
+
+      if ("timedOut" in outcome) {
+        timedOut = true;
+      } else if (outcome.statusCode === 200) {
+        result = outcome.json();
+      } else {
+        infraError = `HTTP ${outcome.statusCode}: ${JSON.stringify(outcome.json()).slice(0, 160)}`;
+      }
     } catch (err) {
       infraError = err instanceof Error ? err.message : String(err);
     }
     const ms = Date.now() - started;
 
     if (!result) {
-      rows.push({
-        name: scenario.name,
-        pass: false,
-        failure: "INFRASTRUCTURE",
-        reason: infraError ?? "no response",
-        tools: [],
-        unnecessary: 0,
-        hallucinated: [],
-        ms,
-        reply: "",
-      });
-      console.log(`FAIL  ${scenario.name}  [INFRASTRUCTURE] ${infraError}`);
+      // A model too slow to answer in four minutes is a model/hardware
+      // failure; an HTTP error is NEMO's.
+      const failure: Failure = timedOut ? "MODEL" : "INFRASTRUCTURE";
+      const reason = timedOut ? `timed out after ${Math.round(ms / 1000)}s` : (infraError ?? "no response");
+      rows.push({ name: scenario.name, pass: false, failure, reason, tools: [], unnecessary: 0, hallucinated: [], ms, reply: "" });
+      log(`FAIL  ${scenario.name}  [${failure}] ${reason}`);
       continue;
     }
 
@@ -353,7 +384,7 @@ async function main() {
       reply: result.reply,
     });
 
-    console.log(
+    log(
       `${grade.pass ? "PASS" : "FAIL"}  ${scenario.name.padEnd(38)} ${String(ms).padStart(6)}ms  ` +
         `tools: ${result.toolCalls.map((t) => t.name).join(", ") || "none"}` +
         (grade.pass ? "" : `\n      ${grade.failure}: ${grade.reason}`),
@@ -364,13 +395,13 @@ async function main() {
   const score = Math.round((passed / rows.length) * 100);
   const byFailure = (kind: Failure) => rows.filter((r) => r.failure === kind).length;
 
-  console.log(`${"=".repeat(64)}`);
-  console.log(`Correct tool/intent selection: ${passed}/${rows.length} (${score}%)`);
-  console.log(
+  log(`${"=".repeat(64)}`);
+  log(`Correct tool/intent selection: ${passed}/${rows.length} (${score}%)`);
+  log(
     `Failures — model: ${byFailure("MODEL")}, prompt: ${byFailure("PROMPT")}, ` +
       `tool-schema: ${byFailure("TOOL-SCHEMA")}, infrastructure: ${byFailure("INFRASTRUCTURE")}`,
   );
-  console.log(`Median latency: ${median(rows.map((r) => r.ms))}ms\n`);
+  log(`Median latency: ${median(rows.map((r) => r.ms))}ms\n`);
 
   const report = [
     `# NEMO real-model evaluation`,
@@ -395,7 +426,7 @@ async function main() {
 
   const reportPath = path.resolve(process.cwd(), "eval-report.md");
   fs.writeFileSync(reportPath, report, "utf-8");
-  console.log(`Report written to ${reportPath}`);
+  log(`Report written to ${reportPath}`);
 
   await app.close();
   closeDb();

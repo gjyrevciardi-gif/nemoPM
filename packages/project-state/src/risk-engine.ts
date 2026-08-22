@@ -151,6 +151,8 @@ function computeSprintDeliveryRisk(input: RiskEngineInput): ComputedRisk[] {
           `Completed points: ${completedPoints}`,
           `Remaining points: ${remainingPoints}`,
           `Observed pace: ${pace.toFixed(2)} pts/day`,
+          // The number a PM actually acts on: how much longer this pace implies.
+          `At that pace the remaining work needs ~${Math.ceil(projectedRemainingDays)} more day(s)`,
         ],
         dedupeKey: `sprint_delivery:${sprint.id}`,
       },

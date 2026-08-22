@@ -210,3 +210,27 @@ describe("performance at a realistic portfolio size", () => {
     expect(elapsed).toBeLessThan(3_000);
   }, 60_000);
 });
+
+describe("portfolio scale", () => {
+  it("summarizes ten projects without carrying any backlog into the prompt", async () => {
+    // Reuses the ten 100-issue projects created above.
+    const started = Date.now();
+    const state = (await app.inject({ method: "GET", url: "/portfolio/state" })).json();
+    const elapsed = Date.now() - started;
+
+    expect(state.projects.length).toBeGreaterThanOrEqual(10);
+    expect(elapsed).toBeLessThan(3_000);
+
+    // A summary is per project, never per issue.
+    const serialized = JSON.stringify(state);
+    expect(serialized).not.toContain("Issue 42");
+    expect(serialized.length).toBeLessThan(20_000);
+
+    provider.queue({ calls: [], reply: "FACT: nothing urgent." });
+    await app.inject({ method: "POST", url: "/agent", payload: { message: "Where should I focus?" } });
+
+    const prompt = provider.lastMessages.find((m) => m.role === "user")!.content;
+    expect(prompt).not.toContain("Issue 42");
+    expect(provider.lastPromptChars).toBeLessThan(12_000);
+  }, 120_000);
+});
