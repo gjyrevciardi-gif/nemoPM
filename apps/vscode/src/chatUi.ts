@@ -82,6 +82,10 @@ export function renderChatHtml(nonce: string, variant: "sidebar" | "panel"): str
     background: var(--vscode-button-background); color: var(--vscode-button-foreground);
     padding: 9px 13px; border-radius: 14px; border-bottom-right-radius: 5px; max-width: 88%;
   }
+  .ctx {
+    font-size: 10.5px; opacity: .6; font-family: var(--vscode-editor-font-family, monospace);
+    padding: 3px 9px; border-radius: 6px; border: 1px dashed var(--vscode-panel-border); align-self: flex-start;
+  }
   .msg.error .text {
     background: var(--vscode-inputValidation-errorBackground);
     border: 1px solid var(--vscode-inputValidation-errorBorder);
@@ -274,11 +278,12 @@ export function renderChatHtml(nonce: string, variant: "sidebar" | "panel"): str
     const cancel = el('button', 'ghost', 'Cancel');
     const apply = el('button', null, 'Apply');
     apply.addEventListener('click', () => vscode.postMessage({ type: 'apply', runId }));
+    // Tell the server too, so the run is recorded as rejected rather than left
+    // hanging as an undecided proposal.
     cancel.addEventListener('click', () => {
-      foot.innerHTML = '';
-      foot.appendChild(el('span', 'note', 'Cancelled — nothing was changed.'));
-      head.textContent = 'Cancelled';
-      card.classList.remove('await');
+      cancel.disabled = true;
+      apply.disabled = true;
+      vscode.postMessage({ type: 'reject', runId });
     });
     foot.append(note, cancel, apply);
     card.appendChild(foot);
@@ -329,6 +334,18 @@ export function renderChatHtml(nonce: string, variant: "sidebar" | "panel"): str
     } else if (m.type === 'applying') {
       const r = runs.get(m.runId);
       if (r) { r.apply.disabled = m.value; r.cancel.disabled = m.value; if (m.value) r.note.textContent = 'Applying…'; }
+    } else if (m.type === 'context') {
+      dropEmpty();
+      messagesEl.appendChild(el('div', 'ctx', m.summary));
+      scroll();
+    } else if (m.type === 'rejected') {
+      const r = runs.get(m.runId);
+      if (r) {
+        r.foot.innerHTML = '';
+        r.foot.appendChild(el('span', 'note', 'Cancelled — nothing was changed.'));
+        r.head.textContent = 'Cancelled';
+        r.card.classList.remove('await');
+      }
     } else if (m.type === 'applied') {
       const r = runs.get(m.runId);
       if (r) {

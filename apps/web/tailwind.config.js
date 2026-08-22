@@ -9,23 +9,23 @@ export default {
         mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       colors: {
-        canvas: "#0E1015",
-        surface: "#161A22",
-        surface2: "#1C212C",
-        surface3: "#232A38",
+        canvas: "#DFF4FF",
+        surface: "#FFFFFF",
+        surface2: "#EFF9FF",
+        surface3: "#E3F2FA",
         border: {
-          DEFAULT: "#262C39",
-          subtle: "#1B202A",
+          DEFAULT: "rgba(0,43,76,.14)",
+          subtle: "rgba(0,43,76,.08)",
         },
         ink: {
-          DEFAULT: "#ECEFF4",
-          muted: "#9AA1B4",
-          faint: "#666E82",
+          DEFAULT: "#002B4C",
+          muted: "#41647B",
+          faint: "#7891A1",
         },
         accent: {
-          DEFAULT: "#E9A23B",
-          soft: "#2E2517",
-          hover: "#F0B15A",
+          DEFAULT: "#F59E71",
+          soft: "#FFF0E8",
+          hover: "#EA8959",
         },
         status: {
           backlog: "#6B7284",
@@ -41,8 +41,8 @@ export default {
         },
       },
       boxShadow: {
-        card: "0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.02)",
-        popover: "0 8px 30px rgba(0,0,0,0.5)",
+        card: "0 12px 28px -20px rgba(0,43,76,.35)",
+        popover: "0 24px 70px rgba(0,43,76,.25)",
       },
       borderRadius: {
         sm: "6px",

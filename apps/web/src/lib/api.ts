@@ -1,8 +1,16 @@
 import type {
   Activity,
   AddDependencyInput,
+  AgentApplyResponse,
+  AgentResponse,
+  AgentRunSummary,
   AiStatusResponse,
   ConfirmPlanInput,
+  CreateDecisionInput,
+  CreateMilestoneInput,
+  Decision,
+  Milestone,
+  PortfolioState,
   CreateIssueInput,
   CreateProjectInput,
   CreateSprintInput,
@@ -150,6 +158,44 @@ export const api = {
     post<PlanTaskResponse>(`/projects/${projectId}/ai/plan-task`, { request: taskRequest }),
   confirmPlan: (projectId: string, input: ConfirmPlanInput) =>
     post<Issue[]>(`/projects/${projectId}/ai/plan-task/confirm`, input),
+
+  // Agent -- the same endpoints the VS Code extension calls. There is no
+  // separate web AI logic: tiers, proposals and transactional apply all live
+  // on the server, so both clients get identical behavior.
+  runAgent: (projectId: string, message: string) =>
+    post<AgentResponse>(`/projects/${projectId}/agent`, { message }),
+  applyAgentRun: (projectId: string, runId: string) =>
+    post<AgentApplyResponse>(`/projects/${projectId}/agent/${runId}/apply`),
+  rejectAgentRun: (projectId: string, runId: string) =>
+    post<{ runId: string; status: string }>(`/projects/${projectId}/agent/${runId}/reject`),
+  listAgentRuns: (projectId: string, limit = 25) =>
+    request<AgentRunSummary[]>(`/projects/${projectId}/agent/runs?limit=${limit}`),
+
+  // Portfolio
+  getPortfolioState: () => request<PortfolioState>("/portfolio/state"),
+  askPortfolio: (message: string) => post<AgentResponse>("/agent", { message }),
+
+  // Project memory
+  listDecisions: (projectId: string) => request<Decision[]>(`/projects/${projectId}/decisions`),
+  createDecision: (projectId: string, input: CreateDecisionInput) =>
+    post<Decision>(`/projects/${projectId}/decisions`, input),
+  updateDecision: (projectId: string, decisionId: string, input: Partial<CreateDecisionInput>) =>
+    patch<Decision>(`/projects/${projectId}/decisions/${decisionId}`, input),
+  deleteDecision: (projectId: string, decisionId: string) =>
+    del<void>(`/projects/${projectId}/decisions/${decisionId}`),
+
+  listMilestones: (projectId: string, includeUnconfirmed = false) =>
+    request<Milestone[]>(`/projects/${projectId}/milestones?includeUnconfirmed=${includeUnconfirmed}`),
+  createMilestone: (projectId: string, input: CreateMilestoneInput) =>
+    post<Milestone>(`/projects/${projectId}/milestones`, input),
+  updateMilestone: (projectId: string, milestoneId: string, input: Record<string, unknown>) =>
+    patch<Milestone>(`/projects/${projectId}/milestones/${milestoneId}`, input),
+  completeMilestone: (projectId: string, milestoneId: string) =>
+    post<Milestone>(`/projects/${projectId}/milestones/${milestoneId}/complete`),
+  confirmMilestone: (projectId: string, milestoneId: string) =>
+    post<Milestone>(`/projects/${projectId}/milestones/${milestoneId}/confirm`),
+  deleteMilestone: (projectId: string, milestoneId: string) =>
+    del<void>(`/projects/${projectId}/milestones/${milestoneId}`),
 
   // Settings
   getRiskThresholds: () => request<RiskThresholds>("/settings/risk-thresholds"),

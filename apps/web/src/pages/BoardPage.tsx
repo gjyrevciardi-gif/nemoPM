@@ -155,17 +155,24 @@ export default function BoardPage() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {COLUMNS.map((col) => (
+        <div className="flex h-full flex-col">
+          <div className="mx-6 mt-4 flex flex-none items-center gap-8 rounded-[18px] border border-border-subtle bg-gradient-to-br from-white to-[#EFF9FF] px-5 py-3 shadow-card">
+            {[{label:"TOTAL",value:Object.values(columns).flat().length},{label:"IN FLIGHT",value:columns.in_progress.length},{label:"REVIEW",value:columns.in_review.length},{label:"SHIPPED",value:columns.done.length}].map((metric, index) => <div key={metric.label} className="min-w-[76px]"><p className="font-mono text-[9px] tracking-[.16em] text-ink-faint">{metric.label}</p><p className="font-display text-2xl font-bold" style={{color:index === 1 ? "#E5793F" : "#002B4C"}}>{metric.value}</p></div>)}
+            <button onClick={() => setCreateStatus("backlog")} className="ml-auto flex h-10 items-center gap-2 rounded-xl bg-gradient-to-b from-[#FFC29C] to-[#F59E71] px-4 text-xs font-bold text-[#00243F] shadow-[0_12px_25px_-12px_rgba(245,158,113,1)]"><span className="text-xl leading-none">+</span> New card</button>
+          </div>
+          <div className="flex min-h-0 flex-1 gap-3.5 overflow-x-auto px-6 pb-5 pt-3">
+          {COLUMNS.map((col, index) => (
             <Column
               key={col.status}
               status={col.status}
               label={col.label}
               issues={columns[col.status]}
+              index={index}
               onAdd={() => setCreateStatus(col.status)}
               onOpenIssue={setOpenIssueId}
             />
           ))}
+          </div>
         </div>
         <DragOverlay>{activeIssue && <IssueCard issue={activeIssue} onClick={() => {}} />}</DragOverlay>
       </DndContext>
@@ -191,36 +198,40 @@ function Column({
   issues,
   onAdd,
   onOpenIssue,
+  index,
 }: {
   status: IssueStatus;
   label: string;
   issues: Issue[];
   onAdd: () => void;
   onOpenIssue: (id: string) => void;
+  index: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `column:${status}` });
 
   return (
     <div
       ref={setNodeRef}
-      className={`flex min-h-[400px] flex-col gap-2 rounded-md border border-border-subtle bg-surface/40 p-2 transition-colors ${
-        isOver ? "border-accent/40 bg-surface2/40" : ""
+      className={`tide-column flex w-[294px] flex-none flex-col rounded-[18px] border border-border-subtle p-2.5 transition-colors ${
+        isOver ? "border-accent bg-white/70" : ""
       }`}
     >
-      <div className="flex items-center justify-between px-1 py-1">
-        <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{label}</span>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-ink-faint">{issues.length}</span>
-          <button onClick={onAdd} className="text-ink-faint hover:text-accent" aria-label={`Add issue to ${label}`}>
+      <div className="flex items-center gap-2.5 px-1.5 pb-3 pt-1">
+        <span className="h-2 w-2 rounded-[3px] shadow-[0_0_12px_currentColor]" style={{background:["#7891A1","#2B8FC4","#F59E71","#8859B6","#298C75"][index]}} />
+        <span className="text-[11px] font-extrabold uppercase tracking-[.11em] text-ink/80">{label}</span>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="font-mono text-[10px] text-ink-faint">{issues.length}</span>
+          <button onClick={onAdd} className="grid h-6 w-6 place-items-center rounded-lg bg-[#002b4c]/[.06] text-ink-faint hover:bg-accent/20 hover:text-accent" aria-label={`Add issue to ${label}`}>
             +
           </button>
         </div>
       </div>
       <SortableContext items={issues.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex flex-1 flex-col gap-2">
+        <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-0.5 pb-1">
           {issues.map((issue) => (
             <IssueCard key={issue.id} issue={issue} onClick={() => onOpenIssue(issue.id)} />
           ))}
+          {issues.length === 0 && <div className="rounded-[15px] border border-dashed border-border px-3 py-8 text-center text-xs text-ink-faint">still water</div>}
         </div>
       </SortableContext>
     </div>

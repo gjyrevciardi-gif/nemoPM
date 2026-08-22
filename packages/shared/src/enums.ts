@@ -47,5 +47,8 @@ export const ActivityTypeSchema = z.enum([
   "risk.resolved",
   "dependency.added",
   "dependency.removed",
+  "decision.recorded",
+  "milestone.created",
+  "milestone.confirmed",
 ]);
 export type ActivityType = z.infer<typeof ActivityTypeSchema>;

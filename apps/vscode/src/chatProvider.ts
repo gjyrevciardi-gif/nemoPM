@@ -1,7 +1,9 @@
 import * as vscode from "vscode";
 import { api, ApiClientError } from "./api.js";
 import { SelectionState } from "./state.js";
+import type { CodeContext } from "@ai-pm/shared";
 import { getNonce, renderChatHtml } from "./chatUi.js";
+import { buildCodeContext } from "./codeContext.js";
 
 /**
  * Message plumbing between a chat webview and the agent API. Shared by both
@@ -29,6 +31,8 @@ export class ChatController {
         await this.handleSend(webview, String(message.text ?? ""));
       } else if (message.type === "apply") {
         await this.handleApply(webview, String(message.runId ?? ""));
+      } else if (message.type === "reject") {
+        await this.handleReject(webview, String(message.runId ?? ""));
       } else if (message.type === "switchProject") {
         // The picker refreshes every surface itself, this one included.
         await this.onSwitchProject();
@@ -77,7 +81,15 @@ export class ChatController {
 
     webview.postMessage({ type: "thinking", value: true });
     try {
-      const result = await api.runAgent(projectId, trimmed);
+      // Only requests that actually refer to the editor carry editor context:
+      // "create a bug for this" needs the selection, "what's in my sprint"
+      // does not, and sending code either way would just slow every turn down.
+      const codeContext = await buildCodeContext(trimmed);
+      if (codeContext) {
+        webview.postMessage({ type: "context", summary: describeAttachedContext(codeContext) });
+      }
+
+      const result = await api.runAgent(projectId, trimmed, codeContext);
       webview.postMessage({
         type: "assistant",
         role: "assistant",
@@ -92,6 +104,22 @@ export class ChatController {
       webview.postMessage({ type: "assistant", role: "error", text: errorText(err) });
     } finally {
       webview.postMessage({ type: "thinking", value: false });
+    }
+  }
+
+  /**
+   * Cancelling has to reach the server, not just clear the card: a proposal
+   * left in "proposed" is a plan the audit trail says nobody ever decided on,
+   * and it stays applicable until it expires.
+   */
+  private async handleReject(webview: vscode.Webview, runId: string) {
+    const projectId = this.selection.projectId;
+    if (!projectId || !runId) return;
+    try {
+      await api.rejectAgentRun(projectId, runId);
+      webview.postMessage({ type: "rejected", runId });
+    } catch (err) {
+      webview.postMessage({ type: "assistant", role: "error", text: errorText(err) });
     }
   }
 
@@ -173,4 +201,21 @@ export class AiPmChatPanel {
 function errorText(err: unknown): string {
   if (err instanceof ApiClientError) return err.message;
   return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * What the user is told was attached. Sending code silently would be the wrong
+ * default: the chat should show exactly what left the editor.
+ */
+function describeAttachedContext(context: CodeContext): string {
+  const parts: string[] = [];
+  if (context.selection) {
+    const lines = context.selection.endLine - context.selection.startLine + 1;
+    parts.push(`${context.selection.path}:${context.selection.startLine} (${lines} line${lines === 1 ? "" : "s"})`);
+  } else if (context.activeFile) {
+    parts.push(context.activeFile.path);
+  }
+  if (context.diagnostics.length > 0) parts.push(`${context.diagnostics.length} problem(s)`);
+  if (context.branch) parts.push(context.branch);
+  return `Attached: ${parts.join(" · ")}`;
 }

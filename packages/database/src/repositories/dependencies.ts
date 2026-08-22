@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { ApiError } from "@ai-pm/shared";
 import type { IssueDependency } from "@ai-pm/shared";
 import { newId, now } from "../util.js";
 import { recordActivity } from "./activities.js";
@@ -29,7 +30,18 @@ export function addDependency(
     throw new Error("An issue cannot depend on itself");
   }
   const issue = getIssueOrThrow(db, issueId);
-  getIssueOrThrow(db, dependsOnIssueId); // validates existence
+  const dependsOn = getIssueOrThrow(db, dependsOnIssueId);
+
+  // Both ids exist -- but a dependency across two projects would make one
+  // project's board depend on work it can't see, so it is rejected here,
+  // where every caller (REST and agent alike) passes through.
+  if (issue.projectId !== dependsOn.projectId) {
+    throw new ApiError(
+      400,
+      "CROSS_PROJECT",
+      "An issue can only depend on another issue in the same project.",
+    );
+  }
 
   const id = newId();
   const ts = now();

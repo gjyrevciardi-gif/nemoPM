@@ -4,5 +4,18 @@ export * as dependenciesDomain from "./dependencies.js";
 export * as backlogDomain from "./backlog.js";
 export * as projectsDomain from "./projects.js";
 export * as planDomain from "./plan.js";
-export { AGENT_TOOLS, getAgentTool } from "./tools.js";
-export type { AgentToolDefinition } from "./tools.js";
+export * as memoryDomain from "./memory.js";
+
+export {
+  AGENT_TOOLS,
+  getAgentTool,
+  callableTools,
+  getTier,
+  isReadTool,
+  isWriteTool,
+  PORTFOLIO_AGENT_TOOLS,
+  getPortfolioTool,
+} from "./tools/registry.js";
+export type { AgentTool, ReadTool, WriteTool, ToolContext, ToolServices, JsonSchema } from "./tools/types.js";
+export { decideToolCall, resolveApplicableAction } from "./permissions.js";
+export type { ToolDecision } from "./permissions.js";

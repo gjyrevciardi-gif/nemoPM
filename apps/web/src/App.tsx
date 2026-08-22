@@ -7,6 +7,9 @@ import BoardPage from "./pages/BoardPage.js";
 import BacklogPage from "./pages/BacklogPage.js";
 import ActivityPage from "./pages/ActivityPage.js";
 import SettingsPage from "./pages/SettingsPage.js";
+import AgentPage from "./pages/AgentPage.js";
+import DecisionsPage from "./pages/DecisionsPage.js";
+import HistoryPage from "./pages/HistoryPage.js";
 
 export default function App() {
   // One live-sync stream for the whole tab: changes made anywhere (VS Code,
@@ -22,6 +25,9 @@ export default function App() {
           <Route path="board" element={<BoardPage />} />
           <Route path="backlog" element={<BacklogPage />} />
           <Route path="activity" element={<ActivityPage />} />
+          <Route path="decisions" element={<DecisionsPage />} />
+          <Route path="history" element={<HistoryPage />} />
+          <Route path="ai" element={<AgentPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>
