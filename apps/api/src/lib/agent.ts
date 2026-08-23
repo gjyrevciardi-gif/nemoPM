@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import { agentRunsRepo, decisionsRepo, dependenciesRepo, issuesRepo, sprintsRepo } from "@ai-pm/database";
+import { activitiesRepo, agentRunsRepo, decisionsRepo, dependenciesRepo, issuesRepo, sprintsRepo } from "@ai-pm/database";
 import {
   callableTools,
   routeAgentTools,
@@ -293,6 +293,31 @@ function violatesResponseContract(intent:string,text:string){if(!intent.startsWi
 function sanitizeTraceText(text:string){return text.replace(/[A-Za-z]:\\[^\s"']+/g,"[REDACTED_PATH]").replace(/\b(?:token|password|secret|api[_-]?key)\s*[:=]\s*\S+/gi,"[REDACTED_SECRET]").slice(0,4000);}
 function emitDevelopmentTrace(runtime:any,context:string,raw:string,final:string,contractViolation:boolean){if(process.env.NODE_ENV==="production"||process.env.VITEST==="true")return;const trace={projectMode:runtime.projectMode,intent:runtime.intent,responseContract:contractName(runtime.intent),needsRepositoryContext:runtime.repositoryContext,needsCodeContext:runtime.codeContext,contextSources:runtime.contextSources,toolsOffered:runtime.toolsOffered,agentPath:"runProjectAgent",endpoint:"POST /projects/:projectId/agent",inputSignals:{progress:/\bProgress:/i.test(context),currentWork:/\bCurrent work\b/i.test(context),recentActivity:/\bRecent activity\b/i.test(context),riskRecommendation:/\bRecommendation\b|\bRisk:/i.test(context),gitRepository:/\bGit:|Git repository|repository state/i.test(context),zeroOfZero:/\b0\/0\b/.test(context),sourceContent:false},rawModelResponse:sanitizeTraceText(raw),finalResponse:sanitizeTraceText(final),contractValidatorRan:true,contractViolation};runtime.debug={responseContract:trace.responseContract,agentPath:trace.agentPath,endpoint:trace.endpoint,systemPromptSections:["GROUNDING","TOOLS","SAFETY","REPLY","ROUTING_CONTRACT"],contextSources:trace.contextSources,repositoryStateAttached:trace.needsRepositoryContext,codeContextAttached:trace.needsCodeContext,rawModelResponse:trace.rawModelResponse,finalRenderedResponse:trace.finalResponse,contractViolation};console.info(`[NEMO_ORCHESTRATION_TRACE] ${JSON.stringify(trace)}`);}
 
+/** A one-line rendering of an activity's payload, using whatever it actually carries. */
+function activityDetail(payload: Record<string, unknown>): string {
+  const parts = ["key", "title", "name", "to", "status"]
+    .map((field) => payload[field])
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  return parts.length ? `: ${parts.join(" ")}` : "";
+}
+
+/**
+ * Recognises a plain question about what happened recently. Deliberately narrow:
+ * it must read as a question about change, and must not carry a verb that would
+ * make it a request to change something. Albanian is matched alongside English
+ * because that is what this project's users actually type.
+ */
+export function isRecentChangeQuestion(message: string): boolean {
+  if (/\b(create|add|update|set|move|mark|plan|record|delete|remove|assign)\b/i.test(message)) return false;
+  // Order-insensitive on purpose: "the latest commits" and "which commits
+  // landed most recently" are the same question asked from opposite ends.
+  const whenWord = /\b(last|latest|recent|recently|newest|lately)\b/i;
+  const changeWord = /\b(change|changes|changed|commit|commits|activity|happened|update|updates)\b/i;
+  const bare = /\bwhat(?:'s| is| has)?\s+(?:changed|new|happened)\b/i;
+  const albanian = /\bndryshim(?:i|et|e)?\b|\bqka? ka ndryshuar\b|\baktiviteti i fundit\b/i;
+  return (whenWord.test(message) && changeWord.test(message)) || bare.test(message) || albanian.test(message);
+}
+
 /**
  * One project-agent turn.
  *
@@ -339,6 +364,21 @@ export async function runProjectAgent(
   if(isLocalModelRuntime && /\b(risk|risks|putting (?:this|the) sprint at risk)\b/i.test(message) && !/\b(create|update|change|resolve|delete)\b/i.test(message)){
     const state=await buildProjectState(db,projectId);const reply=state.risks.length?`Current risks:\n${state.risks.map(r=>`- [${r.severity}] ${r.message} Evidence: ${r.evidence.join("; ")}`).join("\n")}`:"No deterministic project risks are currently open.";
     return {runId:null,reply,actions:[],appliedResults:[],plan:null,toolCalls:[{name:"getRisks",args:{},kind:"read",tier:"auto",ok:true,summary:"read"}],status:"done",runtime};
+  }
+  // "What changed recently?" is a lookup, not an analysis. Sending it to the
+  // model cost ~135s on local hardware and buried the one-line answer under a
+  // status template nobody asked for, so answer it from the record instead.
+  if(isLocalModelRuntime && isRecentChangeQuestion(message)){
+    const state=await buildProjectState(db,projectId);
+    const commits=state.git.connected?state.git.recentCommits.slice(0,5):[];
+    // Asking NEMO a question is not a project change. Without this filter the
+    // answer is a list of the user's own AI requests, which reads as noise.
+    const activity=activitiesRepo.listActivityByProject(db,projectId,40).filter(entry=>!entry.type.startsWith("ai.")).slice(0,5);
+    const lines:string[]=[];
+    if(commits.length)lines.push(`Last commit: ${commits[0]!.subject} (${commits[0]!.shortHash})`,...commits.slice(1).map(c=>`  then: ${c.subject} (${c.shortHash})`));
+    if(activity.length)lines.push(commits.length?"":"Most recent project activity:",...activity.map(a=>`- ${a.type}${activityDetail(a.payload)} (${a.createdAt.slice(0,10)})`));
+    if(!lines.length)lines.push(state.git.connected?"No commits or project activity have been recorded yet.":"No project activity yet, and no Git repository is connected.");
+    return {runId:null,reply:lines.filter(Boolean).join("\n"),actions:[],appliedResults:[],plan:null,toolCalls:[{name:"getRecentActivity",args:{limit:5},kind:"read",tier:"auto",ok:true,summary:"read"}],status:"done",runtime};
   }
   if(isLocalModelRuntime && /\b(why did we|why was|recall|what did we decide)\b/i.test(message)){
     const words=(message.toLowerCase().match(/[a-z0-9]+/g)??[]).filter(word=>word.length>=4&&!new Set(["why","what","did","choose","chose","decide","decision","recall","about"]).has(word));
