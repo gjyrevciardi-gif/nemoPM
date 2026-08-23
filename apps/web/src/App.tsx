@@ -10,6 +10,8 @@ import SettingsPage from "./pages/SettingsPage.js";
 import AgentPage from "./pages/AgentPage.js";
 import DecisionsPage from "./pages/DecisionsPage.js";
 import HistoryPage from "./pages/HistoryPage.js";
+import IntelligencePage from "./pages/IntelligencePage.js";
+import EvaluationPage from "./pages/EvaluationPage.js";
 
 export default function App() {
   // One live-sync stream for the whole tab: changes made anywhere (VS Code,
@@ -27,6 +29,8 @@ export default function App() {
           <Route path="activity" element={<ActivityPage />} />
           <Route path="decisions" element={<DecisionsPage />} />
           <Route path="history" element={<HistoryPage />} />
+          <Route path="intelligence" element={<IntelligencePage />} />
+          <Route path="evaluation" element={<EvaluationPage />} />
           <Route path="ai" element={<AgentPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
@@ -36,7 +40,7 @@ export default function App() {
           page can no longer promise it's showing the latest data. */}
       {liveStatus === "offline" && (
         <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-md border border-border-subtle bg-surface px-3 py-2 text-xs text-ink-muted shadow-lg">
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+          <span className="h-1.5 w-1.5 rounded-full bg-status-progress" />
           Live sync offline — reconnecting…
         </div>
       )}

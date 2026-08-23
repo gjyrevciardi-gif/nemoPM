@@ -26,7 +26,7 @@ export function decideToolCall(name: string, rawArgs: unknown): ToolDecision {
     };
   }
 
-  const parsed = tool.schema.safeParse(rawArgs ?? {});
+  const parsed = tool.schema.safeParse(dropUnusableNulls(tool.schema, rawArgs ?? {}));
   if (!parsed.success) {
     return { outcome: "refused", reason: `Invalid arguments for ${name}: ${parsed.error.message}` };
   }
@@ -35,6 +35,28 @@ export function decideToolCall(name: string, rawArgs: unknown): ToolDecision {
   return tool.tier === "auto"
     ? { outcome: "execute", tool, args: parsed.data }
     : { outcome: "propose", tool, args: parsed.data };
+}
+
+/**
+ * Models spell "this field does not apply" as `null` far more often than by
+ * leaving the field out, and an optional string schema rejects that -- so a
+ * correct decision came back to the user as a validation error. A null is only
+ * dropped where the field genuinely cannot take one: setParent's
+ * `parentKey: null` means "detach the parent" and has to survive untouched.
+ */
+function dropUnusableNulls(schema: unknown, args: unknown): unknown {
+  if (!args || typeof args !== "object" || Array.isArray(args)) return args;
+  const shape = (schema as { _def?: { shape?: () => Record<string, { safeParse(v: unknown): { success: boolean } }> } })
+    ._def?.shape?.();
+  if (!shape) return args;
+
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(args as Record<string, unknown>)) {
+    const field = shape[key];
+    if (value === null && field && !field.safeParse(null).success) continue;
+    cleaned[key] = value;
+  }
+  return cleaned;
 }
 
 /**
@@ -56,7 +78,7 @@ export function resolveApplicableAction(
     return { ok: false, reason: `"${action.tool}" does not require approval and cannot be applied from a run.` };
   }
 
-  const parsed = tool.schema.safeParse(action.args);
+  const parsed = tool.schema.safeParse(dropUnusableNulls(tool.schema, action.args));
   if (!parsed.success) return { ok: false, reason: `Invalid arguments: ${parsed.error.message}` };
 
   return { ok: true, tool, args: parsed.data };

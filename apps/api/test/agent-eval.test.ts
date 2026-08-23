@@ -512,6 +512,17 @@ describe("grounding and safety", () => {
     expect(read.ok).toBe(true);
   });
 
+  it("server-side grounding refuses a blind mutation when a descriptive reference has tied candidates",async()=>{
+    const first=(await app.inject({method:"POST",url:"/issues",payload:{projectId:ecom.id,title:"Ambiguous payment alpha",type:"bug",status:"backlog",priority:"medium"}})).json();
+    await app.inject({method:"POST",url:"/issues",payload:{projectId:ecom.id,title:"Ambiguous payment beta",type:"bug",status:"backlog",priority:"medium"}});
+    provider.queue({calls:[call("changeIssueStatus",{issueKey:first.key,status:"in_review"})],reply:"Which ambiguous payment bug do you mean?"});
+    const before=await issueByKey(ecom.id,first.key);
+    const {body}=await ask(ecom.id,"Move the ambiguous payment bug to review.");
+    expect(body.toolCalls[0].ok).toBe(false);
+    expect(body.toolCalls[0].summary).toMatch(/ambiguous/i);
+    expect((await issueByKey(ecom.id,first.key))?.status).toBe(before?.status);
+  });
+
   it("treats issue text as data: an injected instruction cannot unlock a blocked tool", async () => {
     await app.inject({
       method: "POST",

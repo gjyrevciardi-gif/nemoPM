@@ -34,6 +34,11 @@ describe("health", () => {
     expect(res.statusCode).toBe(200);
     expect(res.json().status).toBe("ok");
   });
+  it("GET /ai/health reports Ollama state without making the API unhealthy",async()=>{
+    const res=await app.inject({method:"GET",url:"/ai/health"});
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({reachable:false,state:"offline",warm:false});
+  });
 });
 
 describe("core workflow", () => {
@@ -143,7 +148,7 @@ describe("core workflow", () => {
     expect(sprint.status).toBe("active");
   });
 
-  it("the project agent fails safely (503, no crash) when Ollama is unavailable", async () => {
+  it("the project agent returns a safe route-aware fallback when Ollama is unavailable", async () => {
     const project = (
       await app.inject({ method: "POST", url: "/projects", payload: { name: "Agent Project", key: "AGT" } })
     ).json();
@@ -153,8 +158,11 @@ describe("core workflow", () => {
       url: `/projects/${project.id}/agent`,
       payload: { message: "create a high priority bug for the login crash" },
     });
-    expect(res.statusCode).toBe(503);
-    expect(res.json().error.code).toBe("AI_UNAVAILABLE");
+    expect(res.statusCode).toBe(200);
+    expect(res.json().reply).toMatch(/AI unavailable.*deterministic fallback/i);
+    expect(res.json().runtime.intent).toBe("issue.create");
+    expect(res.json().actions).toHaveLength(0);
+    expect(res.json().appliedResults).toHaveLength(0);
   });
 
   it("applying an unknown agent run returns 404", async () => {

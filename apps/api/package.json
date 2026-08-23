@@ -11,6 +11,12 @@
     "typecheck": "tsc -p tsconfig.check.json",
     "test": "vitest run",
     "eval:model": "tsx scripts/eval-real-model.ts"
+    ,"measure:prompt": "tsx scripts/measure-prompt.ts",
+    "eval:models": "tsx scripts/benchmark-models.ts",
+    "eval:ground-truth": "tsx scripts/eval-ground-truth.ts",
+    "eval:routing": "tsx scripts/eval-routing.ts",
+    "eval:router-model": "tsx scripts/eval-router-model.ts",
+    "validate:nemo-hub": "tsx scripts/validate-nemo-hub.ts"
   },
   "dependencies": {
     "@ai-pm/ai": "workspace:*",

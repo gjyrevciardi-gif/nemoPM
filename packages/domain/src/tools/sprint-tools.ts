@@ -298,13 +298,32 @@ const carryOverTool: WriteTool<z.infer<typeof carryOverSchema>> = {
 // -- planSprint (the flagship composite) -------------------------------------
 
 const planSprintSchema = z.object({
-  name: sprintName,
+  name: z.preprocess(value=>typeof value==="string"&&value.trim()===""?undefined:value,sprintName.optional()).transform(value=>value?.trim()||"Next Sprint"),
   goal: z.string().max(2000).optional(),
   issueKeys: z.array(issueKey).max(50).default([]),
   carryOverFromActiveSprint: z.boolean().optional(),
   completeActiveSprint: z.boolean().optional(),
   start: z.boolean().optional(),
+  maxPoints: z.number().min(0).max(1000).optional(),
+  avoidBlocked: z.boolean().optional(),
 });
+
+function issuesForPlan(ctx:Parameters<typeof findIssueByKey>[0],args:z.infer<typeof planSprintSchema>){
+  let selected=findIssuesByKeys(ctx,args.issueKeys);
+  if(selected.length===0 && args.maxPoints!==undefined){
+    const projectId=requireProjectId(ctx);
+    const all=issuesRepo.listIssuesByProject(ctx.db,projectId);
+    const blocked=new Set(dependenciesRepo.listDependenciesForProject(ctx.db,projectId).filter(dep=>all.find(i=>i.id===dep.dependsOnIssueId)?.status!=="done").map(dep=>dep.issueId));
+    const rank:Record<string,number>={critical:0,high:1,medium:2,low:3};
+    let used=0;
+    selected=all.filter(i=>!i.sprintId&&i.status!=="done"&&(!args.avoidBlocked||!blocked.has(i.id))).sort((a,b)=>(rank[a.priority]??9)-(rank[b.priority]??9)||a.position-b.position).filter(issue=>{const points=issue.storyPoints??0;if(used+points>args.maxPoints!)return false;used+=points;return true;});
+  }
+  if(args.avoidBlocked){
+    const warnings=blockedWarnings(ctx,selected.map(i=>i.id));
+    if(warnings.length>0) throw new Error(`Plan includes blocked work: ${warnings.join("; ")}`);
+  }
+  return selected;
+}
 
 const planSprintTool: WriteTool<z.infer<typeof planSprintSchema>> = {
   name: "planSprint",
@@ -314,48 +333,54 @@ const planSprintTool: WriteTool<z.infer<typeof planSprintSchema>> = {
   // and the one rule it must respect.
   description:
     "Plan the next sprint: create it, add the given issues, optionally carry unfinished work over, and start it. " +
-    "Only one sprint can be active, so starting one requires completeActiveSprint.",
+    "Set maxPoints to enforce a capacity cap; if issueKeys is empty NEMO deterministically selects priority backlog within it. Set avoidBlocked to exclude blocked work. Only one sprint can be active, so starting one requires completeActiveSprint.",
   tier: "ask",
   parameters: {
     type: "object",
     properties: {
-      name: { type: "string" },
+      name: { type: "string",description:"Name for the new sprint; omit to use Next Sprint" },
       goal: { type: "string" },
       issueKeys: { type: "array", items: { type: "string" }, description: "Existing issue keys" },
       carryOverFromActiveSprint: { type: "boolean", description: "Move unfinished work from the active sprint" },
       completeActiveSprint: { type: "boolean", description: "Close the active sprint as part of this plan" },
       start: { type: "boolean", description: "Start it now (default true)" },
+      maxPoints:{type:"number",description:"Hard maximum story points for selected backlog work"},
+      avoidBlocked:{type:"boolean",description:"Exclude/reject issues with unfinished dependencies"},
     },
-    required: ["name"],
+    required: [],
   },
   schema: planSprintSchema,
   describe: (ctx, args) => {
-    const issues = findIssuesByKeys(ctx, args.issueKeys);
+    const issues = issuesForPlan(ctx,args);
     const active = sprintsRepo.getActiveSprint(ctx.db, requireProjectId(ctx));
     const carried =
       args.carryOverFromActiveSprint && active
         ? issuesRepo.listIssuesBySprint(ctx.db, active.id).filter((i) => i.status !== "done")
         : [];
+    const total=pointsOf([...issues,...carried]);
+    if(args.maxPoints!==undefined&&total>args.maxPoints) throw new Error(`Plan totals ${total} points, above maxPoints ${args.maxPoints}.`);
 
     const lines = [`Create sprint "${args.name}"${args.goal ? ` — ${args.goal}` : ""}`];
     for (const issue of issues) lines.push(`  + ${issue.key} "${issue.title}" (${issue.storyPoints ?? 0} pts, ${issue.priority})`);
     for (const issue of carried) lines.push(`  ~ carry ${issue.key} "${issue.title}" (${issue.storyPoints ?? 0} pts, ${issue.status})`);
     if (active && args.completeActiveSprint) lines.push(`  ! complete active sprint "${active.name}"`);
     if (args.start !== false) lines.push("  > start it");
-    lines.push(`  Total: ${pointsOf([...issues, ...carried])} pts`);
+    lines.push(`  Total: ${total} pts`);
     return lines.join("\n");
   },
   points: (ctx, args) => {
-    const issues = findIssuesByKeys(ctx, args.issueKeys);
+    const issues = issuesForPlan(ctx,args);
     const active = sprintsRepo.getActiveSprint(ctx.db, requireProjectId(ctx));
     const carried =
       args.carryOverFromActiveSprint && active
         ? issuesRepo.listIssuesBySprint(ctx.db, active.id).filter((i) => i.status !== "done")
         : [];
-    return pointsOf([...issues, ...carried]);
+    const total=pointsOf([...issues,...carried]);
+    if(args.maxPoints!==undefined&&total>args.maxPoints) throw new Error(`Plan totals ${total} points, above maxPoints ${args.maxPoints}.`);
+    return total;
   },
   evidence: (ctx, args) => {
-    const issues = findIssuesByKeys(ctx, args.issueKeys);
+    const issues = issuesForPlan(ctx,args);
     const active = sprintsRepo.getActiveSprint(ctx.db, requireProjectId(ctx));
     const carried =
       args.carryOverFromActiveSprint && active
@@ -391,7 +416,11 @@ const planSprintTool: WriteTool<z.infer<typeof planSprintSchema>> = {
   },
   execute: (ctx, args) => {
     const projectId = requireProjectId(ctx);
-    const issues = findIssuesByKeys(ctx, args.issueKeys);
+    const issues = issuesForPlan(ctx,args);
+    const active = sprintsRepo.getActiveSprint(ctx.db, projectId);
+    const carried=args.carryOverFromActiveSprint&&active?issuesRepo.listIssuesBySprint(ctx.db,active.id).filter(i=>i.status!=="done"):[];
+    const total=pointsOf([...issues,...carried]);
+    if(args.maxPoints!==undefined&&total>args.maxPoints) throw new Error(`Plan totals ${total} points, above maxPoints ${args.maxPoints}.`);
     const result = sprintsDomain.planSprint(ctx.db, projectId, {
       name: args.name,
       goal: args.goal,

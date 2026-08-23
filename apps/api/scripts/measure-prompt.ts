@@ -8,7 +8,8 @@
  * than a guess.
  */
 import fs from "node:fs";
-import { callableTools } from "@ai-pm/domain";
+import { callableTools, routeAgentTools } from "@ai-pm/domain";
+import { AGENT_SYSTEM_PROMPT } from "../src/lib/ai.js";
 
 const BASE = process.env.OLLAMA_BASE_URL ?? "http://127.0.0.1:11434";
 const MODEL = process.env.OLLAMA_MODEL ?? "llama3.1:latest";
@@ -78,10 +79,30 @@ async function main() {
   );
   log("");
 
-  await timeCall([], "no tools");
-  await timeCall(all.slice(0, 8), "8 tools");
-  await timeCall(all.slice(0, 16), "16 tools");
-  await timeCall(all, "all tools");
+  const sampleContext = `<project_data>\nProject: Example (EX)\nProgress: 12/30 issues\nIssues (bounded): ...\n</project_data>`;
+  const routes = [
+    ["issue_create", "Create a high-priority bug for expired login tokens."],
+    ["issue_update", "Change EX-12 to critical priority."],
+    ["sprint_planning", "Plan the next sprint with max 24 points and avoid blocked work."],
+    ["memory", "Why did we choose SQLite?"],
+    ["code_context", "Create a bug for this selected code."],
+    ["safe_fallback", "Help me understand the project."],
+  ] as const;
+  log("ROUTED SURFACES");
+  for (const [label,message] of routes) {
+    const route=routeAgentTools(message,{hasCodeContext:label==="code_context"});
+    const serialized=JSON.stringify(route.tools.map(toOllamaTool));
+    const total=AGENT_SYSTEM_PROMPT.length+sampleContext.length+message.length+serialized.length;
+    log(`${label.padEnd(18)} intent=${route.primary.padEnd(17)} tools=${String(route.tools.length).padStart(2)} schema=~${String(tokens(serialized)).padStart(4)} tok system=~${tokens(AGENT_SYSTEM_PROMPT)} context=~${tokens(sampleContext)} total=~${tokens("x".repeat(total))} tok`);
+  }
+  log(`full_registry      tools=${String(all.length).padStart(2)} schema=~${tokens(JSON.stringify(all))} tok`);
+  log("");
+
+  if (process.argv.includes("--live")) {
+    await timeCall([], "no tools");
+    await timeCall(routeAgentTools("Create a high priority bug for expired login tokens").tools.map(toOllamaTool), "routed create");
+    await timeCall(all, "all tools");
+  } else log("Pass --live to benchmark the configured Ollama model.");
   log("");
 }
 

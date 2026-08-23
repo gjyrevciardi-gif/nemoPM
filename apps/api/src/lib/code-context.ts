@@ -43,6 +43,7 @@ const MAX_SELECTION_CHARS = 4000;
 const MAX_DIAGNOSTICS = 10;
 const MAX_RELATED_FILES = 10;
 const MAX_LINE_CHARS = 400;
+const MAX_DIFF_CHARS = 6000;
 
 export function isSafePath(path: string): boolean {
   const normalized = path.replace(/\\/g, "/").trim();
@@ -93,6 +94,8 @@ export function sanitizeCodeContext(context: CodeContext | null | undefined): Co
     .map((diagnostic) => ({ ...diagnostic, message: redactSecrets(diagnostic.message).slice(0, 500) }));
 
   const relatedFiles = context.relatedFiles.filter(isSafePath).slice(0, MAX_RELATED_FILES);
+  const diffFiles=context.diff?.files.filter(isSafePath).slice(0,20) ?? [];
+  const diff=context.diff && diffFiles.length>0 ? { files:diffFiles, patch:redactSecrets(context.diff.patch).slice(0,MAX_DIFF_CHARS) } : null;
 
   const sanitized: CodeContext = {
     activeFile,
@@ -101,6 +104,7 @@ export function sanitizeCodeContext(context: CodeContext | null | undefined): Co
     branch: context.branch ? context.branch.slice(0, 200) : null,
     workingTree: context.workingTree ? redactSecrets(context.workingTree).slice(0, 1000) : null,
     relatedFiles,
+    diff,
   };
 
   const empty =
@@ -109,7 +113,9 @@ export function sanitizeCodeContext(context: CodeContext | null | undefined): Co
     sanitized.diagnostics.length === 0 &&
     !sanitized.branch &&
     !sanitized.workingTree &&
-    sanitized.relatedFiles.length === 0;
+    sanitized.relatedFiles.length === 0 &&
+    !sanitized.diff;
+
 
   return empty ? null : sanitized;
 }
@@ -130,5 +136,6 @@ export function describeCodeContext(context: CodeContext): string {
     lines.push(`- ${diagnostic.severity} at ${diagnostic.path}:${diagnostic.line}: ${diagnostic.message}`);
   }
   if (context.relatedFiles.length > 0) lines.push(`- Related files: ${context.relatedFiles.join(", ")}`);
+  if (context.diff) lines.push(`- Bounded diff (${context.diff.files.join(", ")}):`,context.diff.patch);
   return lines.join("\n");
 }

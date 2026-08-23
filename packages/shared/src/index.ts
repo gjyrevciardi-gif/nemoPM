@@ -14,6 +14,9 @@ export * from "./events.js";
 export * from "./code-context.js";
 export * from "./memory.js";
 export * from "./portfolio.js";
+export * from "./intelligence.js";
+export * from "./evidence.js";
+export * from "./learning.js";
 
 export class ApiError extends Error {
   status: number;

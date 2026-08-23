@@ -1,0 +1,139 @@
+{
+  "generatedAt": "2026-08-22T04:19:50.788Z",
+  "repositories": [
+    {
+      "name": "Calculator-main",
+      "before": [
+        65,
+        78,
+        82,
+        80
+      ],
+      "after": [
+        70,
+        82,
+        84,
+        81
+      ],
+      "importMs": 1244,
+      "aiCalls": 0,
+      "fileEvolution": {
+        "files": 33,
+        "modules": 12,
+        "datedFiles": 33
+      },
+      "branches": {
+        "NO_UNIQUE_WORK": 1
+      },
+      "testDetection": "UNAVAILABLE",
+      "clusters": {
+        "count": 4,
+        "suspicious": 4,
+        "flags": [
+          "LOW_COHESION",
+          "LOW_COHESION",
+          "LOW_COHESION",
+          "INSUFFICIENT_EVIDENCE"
+        ]
+      },
+      "currentWork": 0
+    },
+    {
+      "name": "Donations-platform-main",
+      "before": [
+        95,
+        82,
+        78,
+        88
+      ],
+      "after": [
+        100,
+        86,
+        80,
+        89
+      ],
+      "importMs": 6515,
+      "aiCalls": 0,
+      "fileEvolution": {
+        "files": 737,
+        "modules": 23,
+        "datedFiles": 221
+      },
+      "branches": {
+        "STALE_DIVERGED": 5,
+        "NO_UNIQUE_WORK": 1,
+        "MERGED": 18
+      },
+      "testDetection": "UNAVAILABLE",
+      "clusters": {
+        "count": 15,
+        "suspicious": 11,
+        "flags": [
+          "LOW_COHESION",
+          "LOW_COHESION",
+          "LOW_COHESION",
+          "LOW_COHESION",
+          "LOW_COHESION",
+          "LOW_COHESION",
+          "INSUFFICIENT_EVIDENCE",
+          "LOW_COHESION",
+          "LOW_COHESION",
+          "LOW_COHESION",
+          "LOW_COHESION"
+        ]
+      },
+      "currentWork": 1
+    },
+    {
+      "name": "HR-sys-master",
+      "before": [
+        92,
+        45,
+        65,
+        86
+      ],
+      "after": [
+        97,
+        53,
+        67,
+        87
+      ],
+      "importMs": 764,
+      "aiCalls": 0,
+      "fileEvolution": {
+        "files": 1010,
+        "modules": 127,
+        "datedFiles": 1004
+      },
+      "branches": {},
+      "testDetection": {
+        "adapter": "NodeTestAdapter",
+        "command": [
+          "npm",
+          "test"
+        ]
+      },
+      "clusters": {
+        "count": 5,
+        "suspicious": 3,
+        "flags": [
+          "LOW_COHESION",
+          "LOW_COHESION",
+          "LOW_COHESION"
+        ]
+      },
+      "currentWork": 1
+    }
+  ],
+  "dailyUseScore": 81,
+  "precisionRecall": {
+    "status": "NOT_MEASURED",
+    "reason": "No human review labels have been submitted yet; the dataset and metric engine are ready."
+  },
+  "safety": {
+    "fabricatedFacts": 0,
+    "repositoryModifications": 0,
+    "unsafeTestExecutions": 0,
+    "defaultAiCalls": 0
+  }
+}

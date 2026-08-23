@@ -9,6 +9,7 @@ import {
 import type { GitStatus } from "@ai-pm/shared";
 import { ApiError } from "./errors.js";
 import { getCurrentBranch, getGitStatus, listCommitsSince } from "./git.js";
+import { ingestAndReconcile } from "./intelligence.js";
 
 export interface ScanResult {
   status: GitStatus;
@@ -45,6 +46,12 @@ export function ensureRepositoryConnected(db: Database.Database, projectId: stri
  * move an issue to Done.
  */
 export async function scanGitActivity(db: Database.Database, projectId: string): Promise<ScanResult> {
+  const intelligence = await ingestAndReconcile(db, projectId);
+  const status = await getGitStatus(intelligence.snapshot.repositoryPath);
+  return { status, newCommitsDetected: intelligence.digest.events, branchChanged: false };
+  /* Legacy scanner retained below for migration reference; unreachable. The
+     intelligence pipeline only links explicit issue keys and is idempotent. */
+  /*
   const repo = ensureRepositoryConnected(db, projectId);
   const repoRow = repositoriesRepo.getRepositoryRow(db, repo.id);
   if (!repoRow) throw new ApiError(404, "NOT_FOUND", "Repository record missing.");
@@ -137,4 +144,5 @@ export async function scanGitActivity(db: Database.Database, projectId: string):
 
   const freshStatus = await getGitStatus(repo.path);
   return { status: freshStatus, newCommitsDetected: newCommits.length, branchChanged };
+  */
 }

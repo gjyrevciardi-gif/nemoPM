@@ -49,6 +49,8 @@ export interface AgentChatInput {
   tools: ToolSpec[];
   /** Invoked once per tool call the model makes. Must not throw -- return an error inside the result instead. */
   executeTool: (call: ToolCall) => Promise<unknown>;
+  /** Optional deterministic finalizer for a proven single-action turn. Avoids a second model call. */
+  finishAfterTool?: (call: ToolCall, result: unknown) => string | null;
   /** Upper bound on tool-calling round trips before giving up. Defaults to 6. */
   maxSteps?: number;
   temperature?: number;
@@ -61,6 +63,8 @@ export interface AgentTurnResult {
   toolCalls: { call: ToolCall; result: unknown }[];
   /** Which model produced this turn, recorded on the agent run for auditability. */
   model: string | null;
+  /** Actual model invocations, including the final no-tool response. */
+  modelCalls?: number;
 }
 
 /**
@@ -73,6 +77,7 @@ export interface AIProvider {
   structured<T>(input: StructuredInput<T>): Promise<T>;
   /** Multi-step tool-calling loop. Throws AIUnavailableError if the model never settles on a final reply. */
   runAgent(input: AgentChatInput): Promise<AgentTurnResult>;
+  health?(): Promise<{ reachable:boolean; model:string|null; contextSize:number; warm:boolean; state:"ready"|"loading"|"running"|"offline"; error:string|null }>;
 }
 
 /**

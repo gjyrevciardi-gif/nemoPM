@@ -1,0 +1,139 @@
+{
+  "generatedAt": "2026-08-22T03:53:51.353Z",
+  "repositories": [
+    {
+      "project": "Calculator-main",
+      "repositoryPath": "C:\\Users\\Admin\\Downloads\\Calculator-main",
+      "profile": {
+        "commits": 14,
+        "analyzedCommits": 14,
+        "files": 33,
+        "branches": 2,
+        "tags": 0
+      },
+      "scores": {
+        "repositoryUnderstanding": 65,
+        "historyReconstruction": 100,
+        "workClustering": 91,
+        "currentState": 80
+      },
+      "findings": {
+        "clusters": 4,
+        "historical": 4,
+        "current": 0,
+        "risks": 1,
+        "technicalDebtGroups": 0,
+        "nextActions": [
+          {
+            "action": "Investigate: No test files detected",
+            "why": "Deterministic file scan",
+            "urgency": "HIGH",
+            "confidence": "CONFIRMED"
+          }
+        ],
+        "falsePositiveCandidates": 0,
+        "historyCommitsOutsideBound": 0,
+        "autoActions": 1,
+        "proposals": 15
+      },
+      "performance": {
+        "importMs": 812,
+        "aiCalls": 0
+      }
+    },
+    {
+      "project": "Donations-platform-main",
+      "repositoryPath": "C:\\Users\\Admin\\Downloads\\Donations-platform-main (1)\\Donations-platform-main",
+      "profile": {
+        "commits": 71,
+        "analyzedCommits": 71,
+        "files": 737,
+        "branches": 25,
+        "tags": 0
+      },
+      "scores": {
+        "repositoryUnderstanding": 100,
+        "historyReconstruction": 100,
+        "workClustering": 85,
+        "currentState": 100
+      },
+      "findings": {
+        "clusters": 15,
+        "historical": 14,
+        "current": 1,
+        "risks": 1,
+        "technicalDebtGroups": 0,
+        "nextActions": [
+          {
+            "action": "Investigate: Uncommitted repository changes",
+            "why": "19 changed file(s)",
+            "urgency": "HIGH",
+            "confidence": "CONFIRMED"
+          },
+          {
+            "action": "Review current work: Uncommitted working-tree changes",
+            "why": "19 uncommitted file(s), Git working-tree status",
+            "urgency": "MEDIUM",
+            "confidence": "CONFIRMED"
+          }
+        ],
+        "falsePositiveCandidates": 0,
+        "historyCommitsOutsideBound": 0,
+        "autoActions": 1,
+        "proposals": 57
+      },
+      "performance": {
+        "importMs": 3617,
+        "aiCalls": 0
+      }
+    },
+    {
+      "project": "HR-sys-master",
+      "repositoryPath": "C:\\Users\\Admin\\Downloads\\HR-sys-master (2)\\HR-sys-master",
+      "profile": {
+        "commits": 4,
+        "analyzedCommits": 4,
+        "files": 1010,
+        "branches": 1,
+        "tags": 0
+      },
+      "scores": {
+        "repositoryUnderstanding": 100,
+        "historyReconstruction": 85,
+        "workClustering": 88,
+        "currentState": 100
+      },
+      "findings": {
+        "clusters": 5,
+        "historical": 4,
+        "current": 1,
+        "risks": 1,
+        "technicalDebtGroups": 0,
+        "nextActions": [
+          {
+            "action": "Investigate: Uncommitted repository changes",
+            "why": "5 changed file(s)",
+            "urgency": "HIGH",
+            "confidence": "CONFIRMED"
+          },
+          {
+            "action": "Review current work: Uncommitted working-tree changes",
+            "why": "5 uncommitted file(s), Git working-tree status",
+            "urgency": "MEDIUM",
+            "confidence": "CONFIRMED"
+          }
+        ],
+        "falsePositiveCandidates": 0,
+        "historyCommitsOutsideBound": 0,
+        "autoActions": 1,
+        "proposals": 4
+      },
+      "performance": {
+        "importMs": 590,
+        "aiCalls": 0
+      }
+    }
+  ],
+  "dailyUseScore": 91,
+  "method": "Deterministic evidence-coverage grading. False positives are low-evidence clusters requiring human review; missed work counts commits outside the bounded history window and is not claimed as confirmed missed features."
+}

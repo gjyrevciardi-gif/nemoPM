@@ -40,6 +40,8 @@ export const ActivityTypeSchema = z.enum([
   "git.branch_detected",
   "git.commit_detected",
   "git.files_changed",
+  "intelligence.explicit_commit_linked",
+  "intelligence.scan.completed",
   "ai.status_requested",
   "ai.plan_generated",
   "ai.agent_run",

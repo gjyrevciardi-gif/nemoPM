@@ -106,7 +106,9 @@ const changeStatusSchema = z.object({ issueKey, status: IssueStatusSchema });
 const changeIssueStatusTool: WriteTool<z.infer<typeof changeStatusSchema>> = {
   name: "changeIssueStatus",
   kind: "write",
-  description: "Move an issue to a different workflow status (backlog, todo, in_progress, in_review, done).",
+  description:
+    "Move an issue along the workflow: backlog, todo, in_progress, in_review, done. " +
+    "This is where the work sits, not how important it is -- use setPriority for importance or urgency.",
   tier: "auto",
   parameters: {
     type: "object",
@@ -129,7 +131,9 @@ const setPrioritySchema = z.object({ issueKey, priority: PrioritySchema });
 const setPriorityTool: WriteTool<z.infer<typeof setPrioritySchema>> = {
   name: "setPriority",
   kind: "write",
-  description: "Set an issue's priority.",
+  description:
+    "Set how important or urgent an issue is: critical, high, medium or low. " +
+    "Use this for priority, urgency or severity -- not changeIssueStatus, which only moves workflow position.",
   tier: "auto",
   parameters: {
     type: "object",
@@ -151,7 +155,7 @@ const setPointsSchema = z.object({ issueKey, storyPoints: z.number().min(0).max(
 const setStoryPointsTool: WriteTool<z.infer<typeof setPointsSchema>> = {
   name: "setStoryPoints",
   kind: "write",
-  description: "Set an issue's story point estimate.",
+  description: "Set an issue's size estimate in story points. Use this for estimates, sizing or effort.",
   tier: "auto",
   parameters: {
     type: "object",

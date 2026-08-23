@@ -28,6 +28,7 @@ import type {
   UpdateIssueInput,
   UpdateProjectInput,
   UpdateRiskThresholdsInput,
+  NemoToday,
 } from "@ai-pm/shared";
 
 export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://127.0.0.1:43821";
@@ -45,6 +46,7 @@ export interface CodeLink {
   committedAt: string | null;
   createdAt: string;
 }
+export interface AiHealth { reachable:boolean; model:string|null; contextSize:number; warm:boolean; state:"ready"|"loading"|"running"|"offline"; error:string|null }
 
 export class ApiRequestError extends Error {
   constructor(
@@ -152,6 +154,7 @@ export const api = {
   listRisks: (projectId: string) => request<Risk[]>(`/projects/${projectId}/risks`),
 
   // AI
+  getAiHealth: () => request<AiHealth>("/ai/health"),
   getAiStatus: (projectId: string, question?: string) =>
     post<AiStatusResponse>(`/projects/${projectId}/ai/status`, question ? { question } : {}),
   planTask: (projectId: string, taskRequest: string) =>
@@ -174,6 +177,14 @@ export const api = {
   // Portfolio
   getPortfolioState: () => request<PortfolioState>("/portfolio/state"),
   askPortfolio: (message: string) => post<AgentResponse>("/agent", { message }),
+  getNemoToday: () => request<NemoToday>("/intelligence/today"),
+  importRepository: (projectId: string) => post(`/projects/${projectId}/intelligence/import`),
+  getProjectIntelligence: (projectId: string) => request<any>(`/projects/${projectId}/intelligence`),
+  approveIntelligenceAction: (projectId: string, actionId: string) => post(`/projects/${projectId}/intelligence/actions/${actionId}/approve`),
+  rejectIntelligenceAction: (projectId: string, actionId: string) => post(`/projects/${projectId}/intelligence/actions/${actionId}/reject`),
+  getEvaluation: (projectId:string) => request<any>(`/projects/${projectId}/intelligence/reviews`),
+  submitReview: (projectId:string,input:Record<string,unknown>) => post<any>(`/projects/${projectId}/intelligence/reviews`,input),
+  exportReviews: (projectId:string) => request<any>(`/projects/${projectId}/intelligence/reviews/export`),
 
   // Project memory
   listDecisions: (projectId: string) => request<Decision[]>(`/projects/${projectId}/decisions`),

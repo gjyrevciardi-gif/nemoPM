@@ -16,7 +16,10 @@ import { portfolioRoutes } from "./routes/portfolio.js";
 import { memoryRoutes } from "./routes/memory.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { eventRoutes } from "./routes/events.js";
+import { intelligenceRoutes } from "./routes/intelligence.js";
 import { publishChange } from "./lib/events.js";
+import { startIntelligenceWatchers, stopIntelligenceWatchers } from "./lib/intelligence-watcher.js";
+import { getDb } from "@ai-pm/database";
 
 const MUTATING_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
 
@@ -102,6 +105,9 @@ export function buildServer() {
   app.register(portfolioRoutes);
   app.register(memoryRoutes);
   app.register(eventRoutes);
+  app.register(intelligenceRoutes);
+  app.addHook("onReady", async () => startIntelligenceWatchers(getDb()));
+  app.addHook("onClose", async () => stopIntelligenceWatchers());
 
   return app;
 }

@@ -42,7 +42,6 @@ export function IssueCard({ issue, onClick }: { issue: Issue; onClick: () => voi
             {issue.storyPoints} PT
           </span>
         )}
-        <span className="grid h-6 w-6 place-items-center rounded-lg bg-gradient-to-br from-[#0E6A9C] to-[#002B4C] text-[9px] font-bold text-white">{issue.key.slice(0,2)}</span>
       </div>
     </div>
   );

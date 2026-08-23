@@ -102,7 +102,7 @@ const findIssuesTool: ReadTool<z.infer<typeof findIssuesSchema>> = {
   name: "findIssues",
   kind: "read",
   description:
-    "List issues in this project, optionally filtered by status, priority, type, sprint membership, or a text search on the title.",
+    "Find candidate issues, especially when the user describes work without an exact key. Filters title/status/priority/type/sprint. Use this before getIssue for a descriptive or ambiguous reference.",
   tier: "auto",
   parameters: {
     type: "object",
@@ -147,7 +147,7 @@ const getIssueSchema = z.object({ issueKey: z.string().min(1).max(50) });
 const getIssueTool: ReadTool<z.infer<typeof getIssueSchema>> = {
   name: "getIssue",
   kind: "read",
-  description: "Get one issue in full: description, hierarchy, dependencies, and recent activity.",
+  description: "Get one issue in full by its exact existing issueKey. Do NOT put a title or description in issueKey; use findIssues first when no exact key is known.",
   tier: "auto",
   parameters: { type: "object", properties: { issueKey: { type: "string" } }, required: ["issueKey"] },
   schema: getIssueSchema,

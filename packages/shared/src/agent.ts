@@ -77,6 +77,7 @@ export const AgentResponseSchema = z.object({
   plan: AgentPlanSchema.nullable().default(null),
   toolCalls: z.array(AgentToolCallRecordSchema).default([]),
   status: z.enum(["proposed", "done"]),
+  runtime: z.object({ modelCalls:z.number().int().min(0), toolsOffered:z.array(z.string()), route:z.string(), routingConfidence:z.number().min(0).max(1),projectMode:z.string().optional(),intent:z.string().optional(),capabilities:z.array(z.string()).optional(),repositoryContext:z.boolean().optional(),codeContext:z.boolean().optional(),contextSources:z.array(z.string()).optional(),agentSteps:z.number().optional(),debug:z.object({responseContract:z.string(),agentPath:z.string(),endpoint:z.string(),systemPromptSections:z.array(z.string()),contextSources:z.array(z.string()),repositoryStateAttached:z.boolean(),codeContextAttached:z.boolean(),rawModelResponse:z.string(),finalRenderedResponse:z.string(),contractViolation:z.boolean()}).optional() }).optional(),
 });
 export type AgentResponse = z.infer<typeof AgentResponseSchema>;
 

@@ -17,5 +17,8 @@ export {
   getPortfolioTool,
 } from "./tools/registry.js";
 export type { AgentTool, ReadTool, WriteTool, ToolContext, ToolServices, JsonSchema } from "./tools/types.js";
+export { routeAgentTools, toolSurfaceMetrics } from "./tools/router.js";
+export type { ContextDataRequirement, ContextSufficiency } from "./tools/router.js";
+export type { AgentCapability, ToolRoute } from "./tools/router.js";
 export { decideToolCall, resolveApplicableAction } from "./permissions.js";
 export type { ToolDecision } from "./permissions.js";

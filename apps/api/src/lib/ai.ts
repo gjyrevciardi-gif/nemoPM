@@ -19,6 +19,12 @@ export function setAIProvider(next: AIProvider | null): void {
   provider = next;
 }
 
+export async function getAIHealth() {
+  const current=getAIProvider();
+  if (!current.health) return { reachable:true,model:"test-provider",contextSize:0,warm:true,state:"ready" as const,error:null };
+  return current.health();
+}
+
 const SYSTEM_PROMPT = [
   "You are a pragmatic, no-nonsense software engineering project manager assistant.",
   "You are given a deterministic, factual snapshot of a project's state. Use ONLY the facts provided --",
@@ -88,7 +94,7 @@ export interface AiStatusResult {
   model: string | null;
 }
 
-export async function generateAiStatus(state: ProjectState, question?: string): Promise<AiStatusResult> {
+export async function generateAiStatus(state: ProjectState, question?: string,fallbackText?:string): Promise<AiStatusResult> {
   try {
     const context = summarizeStateForPrompt(state);
     const userContent = [
@@ -113,7 +119,7 @@ export async function generateAiStatus(state: ProjectState, question?: string): 
     return { text: result.text, source: "ai", model: result.model };
   } catch (err) {
     if (!(err instanceof AIUnavailableError)) throw err;
-    return { text: formatDeterministicStatus(state), source: "fallback", model: null };
+    return { text: fallbackText??formatDeterministicStatus(state), source: "fallback", model: null };
   }
 }
 
@@ -122,8 +128,9 @@ export async function generateAiStatus(state: ProjectState, question?: string): 
  * times out, or returns something unusable -- the app must never crash or
  * go silent just because the local model isn't available.
  */
-export function formatDeterministicStatus(state: ProjectState): string {
-  const lines: string[] = ["AI unavailable.", "", "Project Status", ""];
+export function formatDeterministicStatus(state: ProjectState,options:{projectMode?:string}={}): string {
+  const bootstrap=options.projectMode==="BOOTSTRAP";
+  const lines: string[] = options.projectMode?["PROJECT STATUS",""]:["AI unavailable.", "", "Project Status", ""];
 
   lines.push(
     `${state.metrics.completedIssues}/${state.metrics.totalIssues} issues completed` +
@@ -149,15 +156,17 @@ export function formatDeterministicStatus(state: ProjectState): string {
     lines.push("", "No risks detected.");
   }
 
-  lines.push("", "Recent Git activity:");
+  lines.push("", "RECENT ACTIVITY:");
   if (state.git.connected) {
     lines.push(
       state.git.recentCommits.length > 0
         ? `${state.git.recentCommits.length} commit(s) detected on ${state.git.branch ?? "current branch"}.`
         : `No new commits detected on ${state.git.branch ?? "current branch"}.`,
     );
-  } else {
+  } else if(!bootstrap) {
     lines.push(state.git.error ?? "No repository connected.");
+  }else{
+    lines.push("No implementation activity is expected yet while this project is in planning.");
   }
 
   lines.push("", "Recommendation:");
@@ -169,6 +178,8 @@ export function formatDeterministicStatus(state: ProjectState): string {
     lines.push(`Continue ${state.activeIssue.key}.`);
   } else if (state.metrics.remainingIssues > 0) {
     lines.push("Start the next planned issue.");
+  } else if(bootstrap&&state.metrics.totalIssues===0){
+    lines.push("No backlog items have been created yet; continue product and MVP planning.");
   } else {
     lines.push("No open work remaining.");
   }
@@ -247,6 +258,8 @@ export const AGENT_SYSTEM_PROMPT = [
   "TOOLS",
   "Look things up with the read tools (findIssues, getIssue, getBacklog, getCurrentSprint, getVelocity, getRisks,",
   "listDecisions) rather than assuming. Only the listed issues are in your context; there may be more.",
+  "Do not call a read tool before a simple write when the request supplies every required value and the exact issue",
+  "key is already present in project context. Use reads to resolve descriptions, ambiguity, missing facts, or planning evidence.",
   "Some write tools execute immediately. Others are held for the user's explicit approval and reply",
   '"queued for the user\'s approval" -- treat that as done from your side: do not call it again, do not wait for it,',
   "continue with anything else the request needs, then summarize.",

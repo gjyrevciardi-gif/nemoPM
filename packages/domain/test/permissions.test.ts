@@ -88,3 +88,29 @@ describe("permission engine", () => {
     }
   });
 });
+
+describe("nulls a model sends for optional fields", () => {
+  it("accepts null as 'not applicable' rather than refusing the call", () => {
+    const decision = decideToolCall("createDecision", {
+      title: "Use SQLite for local-first persistence",
+      decision: "SQLite, because it is transactional and needs no service",
+      issueKey: null,
+      rationale: null,
+    });
+
+    expect(decision.outcome).toBe("execute");
+  });
+
+  it("keeps a null that the schema gives a meaning to", () => {
+    const decision = decideToolCall("setParent", { issueKey: "ECOM-4", parentKey: null });
+
+    expect(decision.outcome).not.toBe("refused");
+    expect((decision as { args: { parentKey: unknown } }).args.parentKey).toBeNull();
+  });
+
+  it("still refuses a null where the field is genuinely required", () => {
+    const decision = decideToolCall("createIssue", { title: null });
+
+    expect(decision.outcome).toBe("refused");
+  });
+});

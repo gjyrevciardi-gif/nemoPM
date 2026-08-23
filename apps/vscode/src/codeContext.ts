@@ -31,6 +31,7 @@ const MAX_SELECTION_CHARS = 4000;
 const MAX_DIAGNOSTICS = 10;
 const MAX_LISTED_FILES = 8;
 const GIT_TIMEOUT_MS = 4000;
+const MAX_DIFF_CHARS = 6000;
 
 /**
  * Words that make a request depend on the editor. "Create a bug for this" is
@@ -38,6 +39,7 @@ const GIT_TIMEOUT_MS = 4000;
  * for it would just be noise in the prompt.
  */
 const DEICTIC = /\b(this|these|that|here|it)\b|\bselect(ed|ion)?\b|\bcurrent file\b|\bthis (file|function|error|change|code|line|bug)\b|\bthe error\b|\bmy change(s)?\b|\bdiff\b/i;
+const DIFF_REFERENCE = /\b(this change|these changes|my changes|current change|the diff|my diff|working tree)\b/i;
 
 export function isSafeWorkspacePath(relativePath: string): boolean {
   const normalized = relativePath.replace(/\\/g, "/").trim();
@@ -80,6 +82,14 @@ async function summarizeWorkingTree(cwd: string): Promise<string | null> {
   const listed = files.slice(0, MAX_LISTED_FILES);
   const suffix = files.length > listed.length ? `, +${files.length - listed.length} more` : "";
   return `${files.length} file(s) changed (${listed.join(", ")}${suffix})`;
+}
+
+async function boundedDiff(cwd:string):Promise<CodeContext["diff"]>{
+  const names=await git(["diff","--name-only","HEAD"],cwd);
+  const files=(names??"").split("\n").map(v=>v.trim()).filter(isSafeWorkspacePath).slice(0,20);
+  if(files.length===0)return null;
+  const patch=await git(["diff","--no-ext-diff","--unified=2","HEAD","--",...files],cwd);
+  return patch ? {files,patch:patch.slice(0,MAX_DIFF_CHARS)} : null;
 }
 
 function collectDiagnostics(uri: vscode.Uri, relativePath: string): CodeDiagnostic[] {
@@ -143,6 +153,7 @@ export async function buildCodeContext(message: string): Promise<CodeContext | n
   const cwd = folder?.uri.fsPath;
   const branch = cwd ? await git(["rev-parse", "--abbrev-ref", "HEAD"], cwd) : null;
   const workingTree = cwd ? await summarizeWorkingTree(cwd) : null;
+  const diff = cwd && DIFF_REFERENCE.test(message) ? await boundedDiff(cwd) : null;
 
   const context: CodeContext = {
     activeFile,
@@ -151,6 +162,7 @@ export async function buildCodeContext(message: string): Promise<CodeContext | n
     branch: branch && branch !== "HEAD" ? branch : null,
     workingTree,
     relatedFiles: [],
+    diff,
   };
 
   const empty =

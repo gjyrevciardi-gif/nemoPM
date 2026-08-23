@@ -17,6 +17,7 @@ export default function HomePage() {
     queryKey: ["portfolio"],
     queryFn: api.getPortfolioState,
   });
+  const { data: today } = useQuery({ queryKey: ["nemo-today"], queryFn: api.getNemoToday });
 
   const projects = portfolio?.projects ?? [];
 
@@ -51,6 +52,7 @@ export default function HomePage() {
           />
         ) : (
           <>
+            {today && <NemoTodayPanel today={today} />}
             <PortfolioAsk projectCount={projects.length} />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {projects.map((summary) => (
@@ -63,6 +65,26 @@ export default function HomePage() {
 
       <CreateProjectModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
+  );
+}
+
+function NemoTodayPanel({ today }: { today: Awaited<ReturnType<typeof api.getNemoToday>> }) {
+  const attention = today.projects.filter((project) => project.needsAttention.length > 0);
+  return (
+    <section className="card mb-6 p-5">
+      <div className="flex items-end justify-between">
+        <div><p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">Continuous intelligence</p><h2 className="font-display text-lg font-semibold text-ink">NEMO Today</h2></div>
+        <p className="font-mono text-[11px] text-ink-faint">{today.automaticUpdates} automatic · {today.needsApproval} need approval</p>
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {attention.length === 0 ? <p className="text-sm text-ink-muted">No project-intelligence items need attention.</p> : attention.slice(0,6).map(project => (
+          <Link key={project.projectId} to={`/projects/${project.projectId}/activity`} className="rounded-md border border-border-subtle bg-surface2 p-3 hover:border-accent/40">
+            <div className="flex justify-between"><span className="font-medium text-ink">{project.name}</span><span className="font-mono text-[10px] text-ink-faint">{project.changes} events</span></div>
+            <p className="mt-1 text-xs text-ink-muted">{project.needsAttention.join(" · ")}</p>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 

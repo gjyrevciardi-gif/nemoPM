@@ -162,6 +162,7 @@ export async function getGitStatus(repoPath: string | null): Promise<GitStatus> 
       connected: false,
       repositoryPath: null,
       error: "No repository connected to this project yet.",
+      errorCode: "NO_REPOSITORY_EXPECTED",
       branch: null,
       isClean: null,
       stagedFiles: [],
@@ -171,12 +172,17 @@ export async function getGitStatus(repoPath: string | null): Promise<GitStatus> 
     };
   }
 
+  if(!fs.existsSync(repoPath))return{connected:false,repositoryPath:repoPath,error:`Repository path does not exist: "${repoPath}".`,errorCode:"REPOSITORY_PATH_INVALID",branch:null,isClean:null,stagedFiles:[],unstagedFiles:[],recentCommits:[],latestCommitAt:null};
+  try{await fs.promises.access(repoPath,fs.constants.R_OK);}catch{return{connected:false,repositoryPath:repoPath,error:`Repository path is not reachable: "${repoPath}".`,errorCode:"REPOSITORY_UNREACHABLE",branch:null,isClean:null,stagedFiles:[],unstagedFiles:[],recentCommits:[],latestCommitAt:null};}
+  try{await execFileAsync("git",["--version"],{cwd:repoPath,timeout:GIT_TIMEOUT_MS});}catch(err){if((err as NodeJS.ErrnoException)?.code==="ENOENT")return{connected:false,repositoryPath:repoPath,error:"Git is not installed or is not available on PATH.",errorCode:"GIT_NOT_INSTALLED",branch:null,isClean:null,stagedFiles:[],unstagedFiles:[],recentCommits:[],latestCommitAt:null};}
+
   const isRepo = await isGitRepository(repoPath);
   if (!isRepo) {
     return {
       connected: false,
       repositoryPath: repoPath,
-      error: `"${repoPath}" is not a Git repository (or git is not installed).`,
+      error: `"${repoPath}" exists but Git has not been initialized there.`,
+      errorCode: "REPOSITORY_NOT_INITIALIZED",
       branch: null,
       isClean: null,
       stagedFiles: [],

@@ -13,6 +13,7 @@ export const GitStatusSchema = z.object({
   connected: z.boolean(),
   repositoryPath: z.string().nullable(),
   error: z.string().nullable(),
+  errorCode: z.enum(["REPOSITORY_NOT_INITIALIZED","GIT_NOT_INSTALLED","REPOSITORY_PATH_INVALID","REPOSITORY_UNREACHABLE","NO_REPOSITORY_EXPECTED"]).nullable().optional(),
   branch: z.string().nullable(),
   isClean: z.boolean().nullable(),
   stagedFiles: z.array(z.string()),

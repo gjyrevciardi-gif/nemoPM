@@ -41,5 +41,7 @@ export const CodeContextSchema = z.object({
   workingTree: z.string().nullable().default(null),
   /** Paths the user explicitly asked to consider. Never auto-filled with the whole repo. */
   relatedFiles: z.array(z.string()).max(25).default([]),
+  /** Bounded diff attached only when the request explicitly references changes/diff. */
+  diff: z.object({ files:z.array(z.string()).max(20), patch:z.string().max(12000) }).nullable().optional(),
 });
 export type CodeContext = z.infer<typeof CodeContextSchema>;

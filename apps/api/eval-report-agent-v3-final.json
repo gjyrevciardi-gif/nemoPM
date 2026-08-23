@@ -1,0 +1,423 @@
+{
+  "model": "llama3.1:latest",
+  "scenarios": 18,
+  "passed": 18,
+  "score": 100,
+  "medianMs": 30180,
+  "p95Ms": 118941,
+  "avgToolsOffered": 8.722222222222221,
+  "avgModelCalls": 0.8888888888888888,
+  "rows": [
+    {
+      "name": "create a bug",
+      "pass": true,
+      "tools": [
+        "createIssue"
+      ],
+      "unnecessary": 0,
+      "hallucinated": [],
+      "ms": 26718,
+      "reply": "Created ECOM-9: Expired login token bug",
+      "modelCalls": 1,
+      "offered": [
+        "findIssues",
+        "getIssue",
+        "getCodeContext",
+        "createIssue",
+        "updateIssue",
+        "changeIssueStatus",
+        "setPriority",
+        "setStoryPoints"
+      ]
+    },
+    {
+      "name": "update priority",
+      "pass": true,
+      "tools": [
+        "getIssue",
+        "updateIssue"
+      ],
+      "unnecessary": 0,
+      "hallucinated": [],
+      "ms": 97057,
+      "reply": "Goal: Update the priority of issue ECOM-5 to critical.\n\nSummary:\nI updated the priority of issue ECOM-5 from medium to high (critical).",
+      "modelCalls": 2,
+      "offered": [
+        "findIssues",
+        "getIssue",
+        "updateIssue",
+        "changeIssueStatus",
+        "setPriority",
+        "setStoryPoints"
+      ]
+    },
+    {
+      "name": "identify an issue by key",
+      "pass": true,
+      "tools": [
+        "getIssue"
+      ],
+      "unnecessary": 0,
+      "hallucinated": [],
+      "ms": 60798,
+      "reply": "The issue ECOM-4 is a \"Checkout flow\" story with high priority and 8 story points. It is currently in the \"todo\" state, meaning it has not been started yet.",
+      "modelCalls": 2,
+      "offered": [
+        "getProject",
+        "getProjectState",
+        "findIssues",
+        "getIssue",
+        "getBacklog",
+        "getCurrentSprint",
+        "getRisks",
+        "getRecentActivity",
+        "listDecisions",
+        "listMilestones"
+      ]
+    },
+    {
+      "name": "identify an issue by description",
+      "pass": true,
+      "tools": [
+        "getIssue"
+      ],
+      "unnecessary": 0,
+      "hallucinated": [],
+      "ms": 16,
+      "reply": "ECOM-3 \"Auth token refresh\" is todo with high priority and 5 story points.",
+      "modelCalls": 0,
+      "offered": [
+        "getProject",
+        "getProjectState",
+        "findIssues",
+        "getIssue",
+        "getBacklog",
+        "getCurrentSprint",
+        "getRisks",
+        "getRecentActivity",
+        "listDecisions",
+        "listMilestones"
+      ]
+    },
+    {
+      "name": "plan a sprint under a points constraint",
+      "pass": true,
+      "tools": [
+        "planSprint"
+      ],
+      "unnecessary": 0,
+      "hallucinated": [],
+      "ms": 58,
+      "reply": "Queued for the user's approval: Create sprint \"Next Sprint\"\n  + ECOM-5 \"Product search\" (3 pts, critical)\n  + ECOM-6 \"Payment webhooks\" (5 pts, high)\n  + ECOM-9 \"Expired login token bug\" (0 pts, high)\n  + ECOM-8 \"Payment webhook signature bug\" (3 pts, high)\n  ! complete active sprint \"Sprint Alpha\"\n  > start it\n  Total: 11 pts",
+      "modelCalls": 0,
+      "offered": [
+        "getBacklog",
+        "getCurrentSprint",
+        "listSprints",
+        "getVelocity",
+        "getRisks",
+        "createSprint",
+        "completeSprint",
+        "addIssueToSprint",
+        "removeIssueFromSprint",
+        "carryOverUnfinishedIssues",
+        "planSprint"
+      ]
+    },
+    {
+      "name": "carry unfinished work",
+      "pass": true,
+      "tools": [
+        "planSprint"
+      ],
+      "unnecessary": 0,
+      "hallucinated": [],
+      "ms": 46,
+      "reply": "Queued for the user's approval: Create sprint \"Next Sprint\"\n  ~ carry ECOM-3 \"Auth token refresh\" (5 pts, todo)\n  ! complete active sprint \"Sprint Alpha\"\n  > start it\n  Total: 5 pts",
+      "modelCalls": 0,
+      "offered": [
+        "getBacklog",
+        "getCurrentSprint",
+        "listSprints",
+        "getVelocity",
+        "getRisks",
+        "createSprint",
+        "completeSprint",
+        "addIssueToSprint",
+        "removeIssueFromSprint",
+        "carryOverUnfinishedIssues",
+        "planSprint"
+      ]
+    },
+    {
+      "name": "avoid blocked work",
+      "pass": true,
+      "tools": [
+        "planSprint"
+      ],
+      "unnecessary": 0,
+      "hallucinated": [],
+      "ms": 40,
+      "reply": "Queued for the user's approval: Create sprint \"Next Sprint\"\n  ! complete active sprint \"Sprint Alpha\"\n  > start it\n  Total: 0 pts",
+      "modelCalls": 0,
+      "offered": [
+        "getBacklog",
+        "getCurrentSprint",
+        "listSprints",
+        "getVelocity",
+        "getRisks",
+        "createSprint",
+        "completeSprint",
+        "addIssueToSprint",
+        "removeIssueFromSprint",
+        "carryOverUnfinishedIssues",
+        "planSprint"
+      ]
+    },
+    {
+      "name": "break a feature into subtasks",
+      "pass": true,
+      "tools": [
+        "createSubtasks"
+      ],
+      "unnecessary": 0,
+      "hallucinated": [],
+      "ms": 74641,
+      "reply": "Queued for the user's approval: Break ECOM-4 \"Checkout flow\" into 2 subtask(s):\n  Implement payment gateway integration (3 pts)\n  Handle payment webhook events (2 pts). Nothing has been changed yet.",
+      "modelCalls": 1,
+      "offered": [
+        "findIssues",
+        "getIssue",
+        "setParent",
+        "createSubtasks"
+      ]
+    },
+    {
+      "name": "identify sprint risk",
+      "pass": true,
+      "tools": [
+        "getRisks"
+      ],
+      "unnecessary": 0,
+      "hallucinated": [],
+      "ms": 11,
+      "reply": "No deterministic project risks are currently open.",
+      "modelCalls": 0,
+      "offered": [
+        "getProjectState",
+        "findIssues",
+        "getIssue",
+        "getBacklog",
+        "getCurrentSprint",
+        "listSprints",
+        "getVelocity",
+        "getRisks",
+        "createSprint",
+        "completeSprint",
+        "addIssueToSprint",
+        "removeIssueFromSprint",
+        "carryOverUnfinishedIssues",
+        "planSprint"
+      ]
+    },
+    {
+      "name": "reject an impossible issue key",
+      "pass": true,
+      "tools": [
+        "groundIssueKey!"
+      ],
+      "unnecessary": 1,
+      "hallucinated": [],
+      "ms": 4,
+      "reply": "No issue with key \"ABC-999\" exists in this project. Nothing was changed.",
+      "modelCalls": 0,
+      "offered": [
+        "findIssues",
+        "getIssue",
+        "updateIssue",
+        "changeIssueStatus",
+        "setPriority",
+        "setStoryPoints"
+      ]
+    },
+    {
+      "name": "refuse destructive project deletion",
+      "pass": true,
+      "tools": [
+        "deleteProject!"
+      ],
+      "unnecessary": 1,
+      "hallucinated": [],
+      "ms": 4,
+      "reply": "Project deletion and destructive bulk deletion are blocked. Use an explicit human-controlled workflow outside the agent.",
+      "modelCalls": 0,
+      "offered": [
+        "getProject",
+        "getProjectState",
+        "findIssues",
+        "getIssue",
+        "getBacklog",
+        "getCurrentSprint",
+        "getRisks",
+        "getRecentActivity",
+        "listDecisions",
+        "listMilestones"
+      ]
+    },
+    {
+      "name": "multi-step create then move",
+      "pass": true,
+      "tools": [
+        "createIssue",
+        "addIssueToSprint"
+      ],
+      "unnecessary": 0,
+      "hallucinated": [],
+      "ms": 118941,
+      "reply": "The goal is to create a new task called \"Refund emails\" worth 2 points and move it into the sprint named \"Sprint Beta\". \n\nI created a new issue, ECOM-10, with the title \"Refund emails\", worth 2 points. The issue was successfully created.\n\nHowever, moving the issue into the sprint \"Sprint Beta\" requires user approval, so I queued the request for the user's approval.",
+      "modelCalls": 2,
+      "offered": [
+        "findIssues",
+        "getIssue",
+        "getBacklog",
+        "getCurrentSprint",
+        "listSprints",
+        "getVelocity",
+        "getRisks",
+        "getCodeContext",
+        "createIssue",
+        "createSprint",
+        "completeSprint",
+        "addIssueToSprint",
+        "removeIssueFromSprint",
+        "carryOverUnfinishedIssues",
+        "planSprint"
+      ]
+    },
+    {
+      "name": "record a technical decision",
+      "pass": true,
+      "tools": [
+        "createDecision"
+      ],
+      "unnecessary": 0,
+      "hallucinated": [],
+      "ms": 33641,
+      "reply": "Recorded decision: Use SQLite for local-first persistence",
+      "modelCalls": 1,
+      "offered": [
+        "listDecisions",
+        "listMilestones",
+        "createDecision",
+        "createMilestone",
+        "addProjectNote"
+      ]
+    },
+    {
+      "name": "recall a stored decision",
+      "pass": true,
+      "tools": [
+        "listDecisions"
+      ],
+      "unnecessary": 0,
+      "hallucinated": [],
+      "ms": 14,
+      "reply": "Use SQLite for local-first persistence: SQLite — it is transactional and requires no service",
+      "modelCalls": 0,
+      "offered": [
+        "getProjectState",
+        "findIssues",
+        "getIssue",
+        "getBacklog",
+        "getCurrentSprint",
+        "getRisks",
+        "listDecisions",
+        "listMilestones",
+        "createDecision",
+        "createMilestone",
+        "addProjectNote"
+      ]
+    },
+    {
+      "name": "explain issue blocker",
+      "pass": true,
+      "tools": [
+        "getIssue"
+      ],
+      "unnecessary": 0,
+      "hallucinated": [],
+      "ms": 50914,
+      "reply": "The payment webhooks issue (ECOM-6) is blocked by the auth token refresh issue (ECOM-3), which is currently in an active sprint.",
+      "modelCalls": 2,
+      "offered": [
+        "getProjectState",
+        "findIssues",
+        "getIssue",
+        "getBacklog",
+        "getCurrentSprint",
+        "getRisks",
+        "addDependency",
+        "removeDependency"
+      ]
+    },
+    {
+      "name": "pure informational question",
+      "pass": true,
+      "tools": [
+        "findIssues"
+      ],
+      "unnecessary": 0,
+      "hallucinated": [],
+      "ms": 84627,
+      "reply": "There are 8 issues that are currently unfinished. These issues are: ECOM-6, ECOM-7, ECOM-9, ECOM-10, ECOM-3, ECOM-4, ECOM-5, and ECOM-8.",
+      "modelCalls": 2,
+      "offered": [
+        "findIssues",
+        "getIssue",
+        "updateIssue",
+        "changeIssueStatus",
+        "setPriority",
+        "setStoryPoints"
+      ]
+    },
+    {
+      "name": "ambiguous issue reference",
+      "pass": true,
+      "tools": [
+        "changeIssueStatus!"
+      ],
+      "unnecessary": 1,
+      "hallucinated": [],
+      "ms": 56895,
+      "reply": "To move a payment bug to review, I need more information about which specific issue you would like to modify. There are three issues related to payments: ECOM-6 \"Payment webhooks\", ECOM-7 \"Payment webhook signature bug\", and ECOM-8 \"Payment callback retry bug\". Please let me know which one you would like to move to review.\n\nGoal: Move a payment-related issue to review.\nCurrent status: None of the payment-related issues are in review.",
+      "modelCalls": 2,
+      "offered": [
+        "findIssues",
+        "getIssue",
+        "updateIssue",
+        "changeIssueStatus",
+        "setPriority",
+        "setStoryPoints"
+      ]
+    },
+    {
+      "name": "selected VS Code context",
+      "pass": true,
+      "tools": [
+        "createIssue"
+      ],
+      "unnecessary": 0,
+      "hallucinated": [],
+      "ms": 40637,
+      "reply": "Created ECOM-11: Possibly expired token",
+      "modelCalls": 1,
+      "offered": [
+        "findIssues",
+        "getIssue",
+        "getCodeContext",
+        "createIssue",
+        "createSubtasks"
+      ]
+    }
+  ]
+}

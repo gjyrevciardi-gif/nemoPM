@@ -47,7 +47,7 @@ async function withTimeout<T>(work: Promise<T>, ms: number): Promise<T | { timed
   return Promise.race([work.finally(() => clearTimeout(timer)), timeout]);
 }
 
-type Failure = "INFRASTRUCTURE" | "MODEL" | "TOOL-SCHEMA" | "PROMPT";
+type Failure = "INFRASTRUCTURE" | "MODEL" | "ROUTING" | "PROMPT" | "TOOL_SCHEMA" | "TIMEOUT" | "GROUNDING";
 
 interface Grade {
   pass: boolean;
@@ -59,6 +59,7 @@ interface Grade {
 interface Scenario {
   name: string;
   message: string;
+  codeContext?: Record<string,unknown>;
   grade: (result: AgentResponse, ctx: EvalContext) => Grade;
 }
 
@@ -87,7 +88,7 @@ function hallucinatedKeys(result: AgentResponse, known: Set<string>): string[] {
     } else if (Array.isArray(value)) value.forEach(walk);
     else if (value && typeof value === "object") Object.values(value).forEach(walk);
   };
-  for (const call of result.toolCalls) walk(call.args);
+  for (const call of result.toolCalls) if(call.ok) walk(call.args);
   return [...new Set(found)];
 }
 
@@ -138,6 +139,11 @@ const SCENARIOS: Scenario[] = [
       }
       return { pass: true };
     },
+  },
+  {
+    name:"identify an issue by description",
+    message:"Find the work about refreshing authentication tokens and tell me its current state.",
+    grade:(r)=> r.actions.length===0 && (called(r,"findIssues")||/auth token refresh|ECOM-3/i.test(r.reply)) ? {pass:true}:{pass:false,reason:"did not resolve the descriptive reference safely",failure:"MODEL"},
   },
   {
     name: "plan a sprint under a points constraint",
@@ -249,10 +255,41 @@ const SCENARIOS: Scenario[] = [
       const move = attempted(r, "addIssueToSprint") ?? attempted(r, "planSprint");
       if (!move) return { pass: false, reason: "never attempted the second step", failure: "MODEL" };
       if (!move.ok && /invalid arguments/i.test(move.summary)) {
-        return { pass: false, reason: `second step rejected: ${move.summary}`, failure: "TOOL-SCHEMA" };
+        return { pass: false, reason: `second step rejected: ${move.summary}`, failure: "TOOL_SCHEMA" };
       }
       return { pass: true };
     },
+  },
+  {
+    name:"record a technical decision",
+    message:"Record the technical decision that we chose SQLite for local-first persistence because it is transactional and requires no service.",
+    grade:(r)=>called(r,"createDecision")?{pass:true}:{pass:false,reason:"createDecision was never called",failure:"MODEL"},
+  },
+  {
+    name:"recall a stored decision",
+    message:"Why did we choose SQLite?",
+    grade:(r)=>r.actions.length===0 && (called(r,"listDecisions")||/transactional|no service|local-first/i.test(r.reply))?{pass:true}:{pass:false,reason:"did not read the stored decision",failure:"GROUNDING" as Failure},
+  },
+  {
+    name:"explain issue blocker",
+    message:"What is blocking the payment webhooks issue?",
+    grade:(r,ctx)=>r.actions.length===0 && (called(r,"getIssue")||called(r,"getRisks")||new RegExp(ctx.blockedKey,"i").test(r.reply)||/auth token refresh/i.test(r.reply))?{pass:true}:{pass:false,reason:"did not ground the blocker explanation",failure:"GROUNDING" as Failure},
+  },
+  {
+    name:"pure informational question",
+    message:"How many issues are currently unfinished? Do not change anything.",
+    grade:(r)=>r.actions.length===0&&r.appliedResults.length===0?{pass:true}:{pass:false,reason:"informational question caused mutation",failure:"PROMPT"},
+  },
+  {
+    name:"ambiguous issue reference",
+    message:"Move the payment bug to review.",
+    grade:(r)=>r.appliedResults.length===0 && r.actions.length===0 && /(which|ambiguous|multiple|clarif|more than one)/i.test(r.reply)?{pass:true}:{pass:false,reason:"did not stop on an ambiguous target",failure:"GROUNDING" as Failure},
+  },
+  {
+    name:"selected VS Code context",
+    message:"Create a bug for this selected code.",
+    codeContext:{activeFile:{path:"src/auth/token.ts",languageId:"typescript"},selection:{path:"src/auth/token.ts",languageId:"typescript",startLine:10,endLine:12,text:"if (token.expired) throw new Error('expired token crash');"},diagnostics:[{path:"src/auth/token.ts",line:10,severity:"error",message:"Possibly expired token",source:"ts"}],branch:"fix/token",workingTree:"1 file changed",relatedFiles:[]},
+    grade:(r)=>{const c=called(r,"createIssue");return c&&/token|expired|auth/i.test(JSON.stringify(c.args))?{pass:true}:{pass:false,reason:"did not create a grounded code-context bug",failure:"GROUNDING" as Failure};},
   },
 ];
 
@@ -280,6 +317,8 @@ async function main() {
   const checkout = await issue({ title: "Checkout flow", status: "todo", priority: "high", storyPoints: 8, type: "story" });
   await issue({ title: "Product search", status: "todo", priority: "medium", storyPoints: 3 });
   const blocked = await issue({ title: "Payment webhooks", status: "backlog", priority: "high", storyPoints: 5 });
+  await issue({ title:"Payment callback retry bug",status:"backlog",priority:"medium",storyPoints:3,type:"bug" });
+  await issue({ title:"Payment webhook signature bug",status:"todo",priority:"high",storyPoints:3,type:"bug" });
   await post(`/issues/${blocked.id}/dependencies`, { dependsOnIssueId: auth.id });
 
   const sprintAlpha = await post("/sprints", { projectId: project.id, name: "Sprint Alpha" });
@@ -313,6 +352,9 @@ async function main() {
     hallucinated: string[];
     ms: number;
     reply: string;
+    modelCalls:number;
+    offered:string[];
+    rejectedArgs:{name:string;args:unknown}[];
   }[] = [];
 
   const only = process.env.EVAL_ONLY?.split(",").map((s) => s.trim().toLowerCase());
@@ -320,7 +362,9 @@ async function main() {
 
   for (const [index, scenario] of scenarios.entries()) {
     log(`\n[${index + 1}/${scenarios.length}] ${scenario.name} — "${scenario.message}"`);
-    const started = Date.now();
+    // Monotonic: a system clock adjustment mid-run once turned an instant
+    // deterministic answer into a reported 14-hour latency.
+    const started = performance.now();
     let result: AgentResponse | null = null;
     let infraError: string | null = null;
     let timedOut = false;
@@ -330,7 +374,7 @@ async function main() {
         app.inject({
           method: "POST",
           url: `/projects/${project.id}/agent`,
-          payload: { message: scenario.message },
+          payload: { message: scenario.message, ...(scenario.codeContext?{codeContext:scenario.codeContext}:{}) },
         }),
         SCENARIO_TIMEOUT_MS,
       );
@@ -345,18 +389,19 @@ async function main() {
     } catch (err) {
       infraError = err instanceof Error ? err.message : String(err);
     }
-    const ms = Date.now() - started;
+    const ms = Math.round(performance.now() - started);
 
     if (!result) {
       // A model too slow to answer in four minutes is a model/hardware
       // failure; an HTTP error is NEMO's.
-      const failure: Failure = timedOut ? "MODEL" : "INFRASTRUCTURE";
+      const failure: Failure = timedOut ? "TIMEOUT" : "INFRASTRUCTURE";
       const reason = timedOut ? `timed out after ${Math.round(ms / 1000)}s` : (infraError ?? "no response");
-      rows.push({ name: scenario.name, pass: false, failure, reason, tools: [], unnecessary: 0, hallucinated: [], ms, reply: "" });
+      rows.push({ name: scenario.name, pass: false, failure, reason, tools: [], unnecessary: 0, hallucinated: [], ms, reply: "",modelCalls:0,offered:[],rejectedArgs:[] });
       log(`FAIL  ${scenario.name}  [${failure}] ${reason}`);
       continue;
     }
 
+    for(const applied of result.appliedResults) if(applied.ok&&applied.tool==="createIssue") for(const key of applied.description.match(/\b[A-Z][A-Z0-9]*-\d+\b/g)??[])ctx.issueKeys.add(key);
     const hallucinated = hallucinatedKeys(result, ctx.issueKeys);
     const rejections = schemaRejections(result);
     let grade = scenario.grade(result, ctx);
@@ -367,8 +412,8 @@ async function main() {
     if (grade.pass && hallucinated.length > 0) {
       grade = { pass: false, reason: `invented ${hallucinated.join(", ")}`, failure: "PROMPT" };
     }
-    if (!grade.pass && !grade.failure && rejections.length > 0) {
-      grade = { ...grade, failure: "TOOL-SCHEMA" };
+    if (!grade.pass && rejections.length > 0) {
+      grade = { ...grade, reason:`${rejections[0]!.name}: ${rejections[0]!.summary}`, failure: "TOOL_SCHEMA" };
     }
 
     const failedCalls = result.toolCalls.filter((tc) => !tc.ok).length;
@@ -382,6 +427,11 @@ async function main() {
       hallucinated,
       ms,
       reply: result.reply,
+      modelCalls:result.runtime?.modelCalls??1,
+      offered:result.runtime?.toolsOffered??[],
+      // A rejected call is only actionable next to the arguments that were
+      // rejected -- "title required" says nothing about what the model sent instead.
+      rejectedArgs:result.toolCalls.filter(tc=>!tc.ok).map(tc=>({name:tc.name,args:tc.args})),
     });
 
     log(
@@ -399,9 +449,10 @@ async function main() {
   log(`Correct tool/intent selection: ${passed}/${rows.length} (${score}%)`);
   log(
     `Failures — model: ${byFailure("MODEL")}, prompt: ${byFailure("PROMPT")}, ` +
-      `tool-schema: ${byFailure("TOOL-SCHEMA")}, infrastructure: ${byFailure("INFRASTRUCTURE")}`,
+      `routing: ${byFailure("ROUTING")}, tool-schema: ${byFailure("TOOL_SCHEMA")}, grounding: ${byFailure("GROUNDING")}, timeout: ${byFailure("TIMEOUT")}, infrastructure: ${byFailure("INFRASTRUCTURE")}`,
   );
   log(`Median latency: ${median(rows.map((r) => r.ms))}ms\n`);
+  log(`P95 latency: ${percentile(rows.map(r=>r.ms),.95)}ms; avg tools offered: ${(rows.reduce((s,r)=>s+r.offered.length,0)/rows.length).toFixed(1)}; avg model calls: ${(rows.reduce((s,r)=>s+r.modelCalls,0)/rows.length).toFixed(1)}`);
 
   const report = [
     `# NEMO real-model evaluation`,
@@ -409,8 +460,11 @@ async function main() {
     `- Model: \`${model}\``,
     `- Run at: ${new Date().toISOString()}`,
     `- Correct tool/intent selection: **${passed}/${rows.length} (${score}%)**`,
-    `- Failures: model ${byFailure("MODEL")}, prompt ${byFailure("PROMPT")}, tool-schema ${byFailure("TOOL-SCHEMA")}, infrastructure ${byFailure("INFRASTRUCTURE")}`,
+    `- Failures: model ${byFailure("MODEL")}, routing ${byFailure("ROUTING")}, prompt ${byFailure("PROMPT")}, tool-schema ${byFailure("TOOL_SCHEMA")}, grounding ${byFailure("GROUNDING")}, timeout ${byFailure("TIMEOUT")}, infrastructure ${byFailure("INFRASTRUCTURE")}`,
     `- Median latency: ${median(rows.map((r) => r.ms))}ms`,
+    `- P95 latency: ${percentile(rows.map(r=>r.ms),.95)}ms`,
+    `- Average tools offered: ${(rows.reduce((s,r)=>s+r.offered.length,0)/rows.length).toFixed(1)}`,
+    `- Average model calls: ${(rows.reduce((s,r)=>s+r.modelCalls,0)/rows.length).toFixed(1)}`,
     ``,
     `| Scenario | Result | Tools called | Unnecessary/failed calls | Hallucinated keys | Latency |`,
     `| --- | --- | --- | --- | --- | --- |`,
@@ -424,8 +478,9 @@ async function main() {
     ...rows.flatMap((r) => [`**${r.name}**`, ``, "> " + (r.reply || "(no reply)").replaceAll("\n", "\n> "), ``]),
   ].join("\n");
 
-  const reportPath = path.resolve(process.cwd(), "eval-report.md");
+  const reportPath = path.resolve(process.cwd(), process.env.EVAL_REPORT_PATH ?? "eval-report.md");
   fs.writeFileSync(reportPath, report, "utf-8");
+  fs.writeFileSync(reportPath.replace(/\.md$/i,".json"),JSON.stringify({model,scenarios:rows.length,passed,score,medianMs:median(rows.map(r=>r.ms)),p95Ms:percentile(rows.map(r=>r.ms),.95),avgToolsOffered:rows.reduce((s,r)=>s+r.offered.length,0)/rows.length,avgModelCalls:rows.reduce((s,r)=>s+r.modelCalls,0)/rows.length,rows},null,2),"utf-8");
   log(`Report written to ${reportPath}`);
 
   await app.close();
@@ -440,6 +495,7 @@ function median(values: number[]): number {
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? (sorted[mid] ?? 0) : Math.round(((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2);
 }
+function percentile(values:number[],p:number):number{const sorted=[...values].sort((a,b)=>a-b);return sorted[Math.min(sorted.length-1,Math.ceil(sorted.length*p)-1)]??0;}
 
 main().catch((err) => {
   console.error("Evaluation harness failed:", err);

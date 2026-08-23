@@ -81,6 +81,17 @@ describe("agent tools", () => {
     expect(getIssue(db, finished.id)?.sprintId).toBe(oldSprint.id);
   });
 
+  it("planSprint enforces maxPoints and can deterministically select backlog within capacity",()=>{
+    const ctx=toolContext(db,projectId);
+    const high=createIssue(db,{projectId,type:"task",title:"High",status:"backlog",priority:"high",storyPoints:8});
+    const medium=createIssue(db,{projectId,type:"task",title:"Medium",status:"backlog",priority:"medium",storyPoints:5});
+    expect(()=>describeWrite(ctx,"planSprint",{name:"Too large",issueKeys:[high.key,medium.key],maxPoints:12})).toThrow(/above maxPoints 12/);
+    const description=describeWrite(ctx,"planSprint",{name:"Bounded",issueKeys:[],maxPoints:12,avoidBlocked:true,start:false});
+    expect(description).toContain("High");
+    expect(description).not.toContain("Medium");
+    expect(description).toContain("Total: 8 pts");
+  });
+
   it("planSprint refuses to start a second sprint unless the plan closes the active one", () => {
     const ctx = toolContext(db, projectId);
     const first = sprintsRepo.createSprint(db, { projectId, name: "Sprint 1" });

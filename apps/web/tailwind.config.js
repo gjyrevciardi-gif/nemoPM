@@ -19,8 +19,8 @@ export default {
         },
         ink: {
           DEFAULT: "#002B4C",
-          muted: "#41647B",
-          faint: "#7891A1",
+          muted: "#244A63",
+          faint: "#496A7F",
         },
         accent: {
           DEFAULT: "#F59E71",

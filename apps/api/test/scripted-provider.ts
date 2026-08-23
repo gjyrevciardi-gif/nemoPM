@@ -53,7 +53,7 @@ export class ScriptedProvider implements AIProvider {
       const result = await input.executeTool(call);
       toolCalls.push({ call, result });
     }
-    return { text: turn.reply, toolCalls, model: "scripted-model:test" };
+    return { text: turn.reply, toolCalls, model: "scripted-model:test", modelCalls:Math.min(input.maxSteps??1,toolCalls.length>0?2:1) };
   }
 
   async chat(_input: ChatInput): Promise<ChatResult> {
