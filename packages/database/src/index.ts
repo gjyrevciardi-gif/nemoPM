@@ -14,6 +14,7 @@ export * as milestonesRepo from "./repositories/milestones.js";
 export * as projectNotesRepo from "./repositories/project-notes.js";
 export * as settingsRepo from "./repositories/settings.js";
 export * as agentRunsRepo from "./repositories/agent-runs.js";
+export * as agentTurnsRepo from "./repositories/agent-turns.js";
 export * as intelligenceRepo from "./repositories/intelligence.js";
 export * as learningRepo from "./repositories/learning.js";
 

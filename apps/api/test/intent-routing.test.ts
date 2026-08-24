@@ -3,14 +3,15 @@ import { DeterministicRouter } from "../src/lib/project-mode.js";
 import type { ProjectModeFeatures } from "@ai-pm/shared";
 
 const BOOTSTRAP: ProjectModeFeatures = {
-  issueCount: 0,
-  sprintCount: 0,
-  activityCount: 0,
-  decisionCount: 0,
-  milestoneCount: 1,
+  projectCreatedAt: new Date().toISOString(),
   repositoryConnected: false,
-  commitCount: 0,
-  ageDays: 0,
+  repositoryScanned: false,
+  totalIssues: 0,
+  activeIssues: 0,
+  totalSprints: 0,
+  activeSprint: false,
+  completedRatio: 0,
+  recentRepositoryActivity: false,
 };
 
 const route = (message: string) => new DeterministicRouter().route(message, BOOTSTRAP, {});
