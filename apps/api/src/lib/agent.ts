@@ -127,6 +127,38 @@ function fenceConversation(text: string): string {
   return ["<conversation>", text.replaceAll("</conversation>", "[/conversation]"), "</conversation>"].join("\n");
 }
 
+const CLAIMS_COMPLETED_WORK =
+  /\b(?:i (?:have |'ve )?(?:just )?(?:created|added|opened|filed|logged|updated|changed|moved|recorded|planned|set up)|(?:has|have) been (?:created|added|updated|moved|recorded)|are now (?:part of|in|visible in)|i (?:have )?put them)\b/i;
+
+/**
+ * Refuses to let the agent take credit for work it did not do.
+ *
+ * Asked to build a backlog, a local model replied "I have created a new issue
+ * for each feature (ACME-1, ACME-2, ACME-3)" -- having called only a read tool,
+ * against an empty project whose key is not even ACME. A project manager that
+ * reports work it never performed is worse than one that refuses: the user walks
+ * away believing a backlog exists.
+ *
+ * So a claim of completed work only stands when a write actually succeeded this
+ * turn, and keys that do not exist are never presented as if they did. The
+ * model's proposal is kept -- it is usually the useful part -- but it is labelled
+ * as a proposal.
+ */
+export function correctUnsupportedClaims(
+  reply: string,
+  toolCalls: { kind: string; ok: boolean }[],
+  knownKeys: Set<string>,
+): string {
+  const wrote = toolCalls.some((call) => call.kind === "write" && call.ok);
+  if (wrote || !CLAIMS_COMPLETED_WORK.test(reply)) return reply;
+
+  const withoutInventedKeys = reply.replace(/\s*\(?\b[A-Z][A-Z0-9]*-\d+\b\)?/g, (match) =>
+    knownKeys.has(match.replace(/[^A-Z0-9-]/gi, "").toUpperCase()) ? match : "",
+  );
+
+  return `Nothing was created or changed — this turn only read the project. What follows is a proposal.\n\n${withoutInventedKeys.trim()}`;
+}
+
 function fenceProjectData(text: string): string {
   return ["<project_data>", text.replaceAll("</project_data>", "[/project_data]"), "</project_data>"].join("\n");
 }
@@ -575,6 +607,14 @@ async function runProjectAgentTurn(
   const rawModelResponse=result.text;
   let contractViolation=violatesResponseContract(routing.intent,result.text);
   if(contractViolation){try{const corrected=await provider.chat({messages:[{role:"system",content:`${AGENT_SYSTEM_PROMPT}\nRequired response contract: ${responseContract(routing.intent).join(", ")}. A ${routing.intent} response must not use the project-status template and must not recommend Git setup unless requested.`},{role:"user",content:`${context}\n\nRequest: ${message}\n\nRewrite the answer for the required response contract. Do not report status and do not propose repository setup.`}],temperature:.1});if(!violatesResponseContract(routing.intent,corrected.text))result={...result,text:corrected.text,model:corrected.model,modelCalls:(result.modelCalls??1)+1};}catch{/* The guarded deterministic response below remains authoritative. */}contractViolation=violatesResponseContract(routing.intent,result.text);if(contractViolation){const state=await buildProjectState(db,projectId);result={...result,text:buildDeterministicFallback({db,projectId,routing,state,reason:"model response rejected: wrong response contract"})};}}
+  result = {
+    ...result,
+    text: correctUnsupportedClaims(
+      result.text,
+      toolCalls,
+      new Set(issuesRepo.listIssuesByProject(db, projectId).map((issue) => issue.key.toUpperCase())),
+    ),
+  };
   emitDevelopmentTrace(runtime,context,rawModelResponse,result.text,contractViolation);
 
   if (proposedActions.length > 0) {
