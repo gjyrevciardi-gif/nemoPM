@@ -122,7 +122,7 @@ The sprint step is instant because it is deterministic, and it is *queued*, not 
 
 ## 6. State
 
-- **297 tests pass** — `ai` 21, `database` 10, `git-context` 21, `project-state` 28, `domain` 48, `api` 169
+- **300 tests pass** — `ai` 21, `database` 10, `git-context` 22, `project-state` 28, `domain` 48, `api` 171
 - `pnpm typecheck`, `pnpm test`, `pnpm build` all clean
 - Merged to `main` and pushed
 
@@ -291,10 +291,51 @@ silently orphaning one.
 | B6 | Approver policy | PASS (deliberate) | `records who approved, and does not gate undo on identity` |
 | E2 | HTTP tests for deterministic routes | PASS | `deterministic routes answer without consulting the model` |
 
-### Still open
+### Still open, graded
 
-1. A commit on a branch that is never checked out is invisible to `git log`.
-2. `hasCodeLinkWithSubject` collapses two different commits sharing a subject.
-3. `CommitWatcher` has no automated test — it needs the VS Code API.
-4. Undo covers single-issue-row tools only; sprint operations are out of scope.
-5. Latency and model accuracy are unchanged — none of this phase touched them.
+Two of the five turned out to be mis-stated. Graded as **blocking** (wrong
+output a user would act on) or **polish** (missing output, or a limit that is
+stated honestly).
+
+| # | Item | Grade | Status |
+|---|---|---|---|
+| 1 | Commits on a branch never checked out were invisible | **was blocking** | **Fixed** — the scan reads `--branches`, not just HEAD |
+| 2 | `hasCodeLinkWithSubject` collapses two commits sharing a subject | polish | Open, deliberate |
+| 3 | `CommitWatcher` has no automated test | polish | Open |
+| 4 | "Undo covers single-issue-row tools only" | **mis-stated** | Corrected below |
+| 5 | Latency and model accuracy | not a defect | The product's constraint |
+
+**#1 was blocking, and is fixed.** `git log` reads HEAD, so a week of work on a
+feature branch that was not currently checked out simply did not exist as far as
+NEMO was concerned — and the failure was not a missing signal but a false one:
+the risk engine would report "in progress with no commits" for an issue somebody
+had been writing code for all week. A missing signal is survivable; a
+confidently wrong one is what makes a tool untrustworthy. The scan now covers
+every local branch. Two original tests had encoded the HEAD-only behaviour and
+were updated deliberately, not worked around.
+
+**#4 was wrong in the doc, not in the code.** Verified with tests rather than
+reasoning:
+
+- A commit naming two issues produces **two separate actions** in one run, each
+  with its own target row, and undo reverses **both**. There is no silent
+  partial revert, and no asymmetry between what A1 records and what undo can
+  return.
+- A single action that touches many rows — `createSubtasks` creating N issues in
+  one call — is refused with `NO_REVERSAL` before anything is touched. Both
+  subtasks survive intact.
+
+So the accurate statement is: undo reverses any number of actions whose effect
+is one issue row each, and explicitly refuses actions whose single call touched
+several rows. That refusal is the same deliberate choice as `planSprint`.
+
+**#2 is polish** because its failure direction is safe: it can only ever produce
+*one fewer* proposal, never a wrong one. Under-proposing is recoverable by
+asking; over-acting is not.
+
+**#3 is polish** because the watcher is roughly seventy lines of VS Code glue
+over an endpoint that is covered end to end. What it can get wrong is failing to
+fire, which is visible immediately in use.
+
+**#5 is not a defect.** 20–130s per model-decided turn is the 2GB VRAM ceiling,
+and no software change in this phase moves it. More VRAM is a 10–30× change.

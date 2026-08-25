@@ -143,3 +143,23 @@ describe("A8 — a repository with no history at all", () => {
     await expect(getBranchActivity(empty)).resolves.toEqual([]);
   });
 });
+
+describe("A7b — work committed on a branch that is not checked out", () => {
+  /**
+   * The dangerous shape of this gap is not the missing link, it is the false
+   * risk: an issue with a week of commits on a feature branch would be reported
+   * as "in progress with no commits" if only HEAD were read.
+   */
+  it("still sees the commit after the branch is left", async () => {
+    const branch = fs.mkdtempSync(path.join(os.tmpdir(), "nemo-branch-"));
+    fs.rmSync(branch, { recursive: true, force: true });
+
+    git(repo, "checkout", "-b", "feature/offstage");
+    commit("WAL-7 work done off the main branch", "offstage.ts", "q\n");
+    git(repo, "checkout", "main");
+
+    const commits = await getCommitsSince(repo, null);
+
+    expect(commits.map((c) => c.subject)).toContain("WAL-7 work done off the main branch");
+  });
+});

@@ -95,6 +95,13 @@ export async function getCommitsSince(repoPath: string, since: Date | null, limi
   const out = await logOrEmpty(
     [
       "log",
+      // Every local branch, not just HEAD. `git log` alone reads the checked-out
+      // branch, so work committed on a feature branch that is never checked out
+      // again is invisible -- and invisible in the worst way: the risk engine
+      // then reports "in progress with no commits" for an issue somebody has
+      // been writing code for all week. A missing signal is survivable; a
+      // confidently wrong one is not.
+      "--branches",
       "-n",
       String(Math.min(limit, MAX_COMMITS)),
       `--pretty=format:${LOG_FORMAT}`,

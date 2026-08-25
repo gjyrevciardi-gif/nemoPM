@@ -46,24 +46,32 @@ describe("reading a repository", () => {
     expect(await isGitRepository(path.join(os.tmpdir(), "definitely-not-a-repo-xyz"))).toBe(false);
   });
 
-  it("returns commits newest first with their changed files", async () => {
+  // Reads every local branch, not only HEAD: work committed on a branch that is
+  // never checked out again would otherwise be invisible, and the risk engine
+  // would confidently report "no commits" for an issue somebody has been
+  // writing code for. "WAL-9 start something" lives on feature/abandoned.
+  it("returns commits from every local branch, newest first, with their changed files", async () => {
     const commits = await getCommitsSince(repo, null);
 
     expect(commits.map((c) => c.subject)).toEqual([
+      "WAL-9 start something",
       "Fix WAL-2 and WAL-3 together",
       "Refactor helpers, no key here",
       "WAL-1 add login screen",
     ]);
-    expect(commits[0]!.changedFiles).toEqual(["wallet.ts"]);
-    expect(commits[0]!.author).toBe("Test Author");
-    expect(commits[0]!.hash).toMatch(/^[0-9a-f]{40}$/);
+
+    const wallet = commits.find((c) => c.subject === "Fix WAL-2 and WAL-3 together")!;
+    expect(wallet.changedFiles).toEqual(["wallet.ts"]);
+    expect(wallet.author).toBe("Test Author");
+    expect(wallet.hash).toMatch(/^[0-9a-f]{40}$/);
   });
 
   it("counts lines added per commit", async () => {
-    const [newest] = await getCommitsSince(repo, null);
+    const commits = await getCommitsSince(repo, null);
+    const wallet = commits.find((c) => c.subject === "Fix WAL-2 and WAL-3 together")!;
 
-    expect(newest!.insertions).toBe(2);
-    expect(newest!.deletions).toBe(0);
+    expect(wallet.insertions).toBe(2);
+    expect(wallet.deletions).toBe(0);
   });
 
   it("honours a since date", async () => {
