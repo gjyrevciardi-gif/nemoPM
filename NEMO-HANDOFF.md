@@ -122,7 +122,7 @@ The sprint step is instant because it is deterministic, and it is *queued*, not 
 
 ## 6. State
 
-- **300 tests pass** — `ai` 21, `database` 10, `git-context` 22, `project-state` 28, `domain` 48, `api` 171
+- **312 tests pass** — `ai` 21, `database` 10, `vscode` 10, `git-context` 22, `project-state` 28, `domain` 48, `api` 173
 - `pnpm typecheck`, `pnpm test`, `pnpm build` all clean
 - Merged to `main` and pushed
 
@@ -300,8 +300,8 @@ stated honestly).
 | # | Item | Grade | Status |
 |---|---|---|---|
 | 1 | Commits on a branch never checked out were invisible | **was blocking** | **Fixed** — the scan reads `--branches`, not just HEAD |
-| 2 | `hasCodeLinkWithSubject` collapses two commits sharing a subject | polish | Open, deliberate |
-| 3 | `CommitWatcher` has no automated test | polish | Open |
+| 2 | `hasCodeLinkWithSubject` collapses two commits sharing a subject | polish | **Fixed** — author date disambiguates |
+| 3 | `CommitWatcher` has no automated test | polish | **Fixed** — 10 tests behind a VS Code stub |
 | 4 | "Undo covers single-issue-row tools only" | **mis-stated** | Corrected below |
 | 5 | Latency and model accuracy | not a defect | The product's constraint |
 
@@ -339,3 +339,61 @@ fire, which is visible immediately in use.
 
 **#5 is not a defect.** 20–130s per model-decided turn is the 2GB VRAM ceiling,
 and no software change in this phase moves it. More VRAM is a 10–30× change.
+
+---
+
+## 11. Closing the list
+
+### #2 — telling a rewritten commit from a repeated one
+
+Deduplicating on subject alone was too blunt: two genuinely different commits
+reusing a message on one issue collapsed into a single link, and the second was
+never proposed. The author date separates them, and it is the right key because
+**git preserves it through both amend and rebase** — a rewritten commit keeps
+the identity it had, while a commit written later does not inherit somebody
+else's.
+
+Both directions are pinned: A5 (an amend is not re-proposed) and A5b (two
+distinct commits sharing a subject are both linked).
+
+The residual case is two commits sharing a subject *and* an author date, which
+means the same second. If that happens the second is swallowed — but it now
+requires a coincidence rather than merely reusing a message.
+
+### #3 — the extension is no longer untested
+
+`vscode` is provided by the editor and does not exist on disk, which is why
+none of the extension had tests. A small stub of the API surface the extension
+actually touches, aliased in a vitest config, is the seam that makes it testable
+at all. The stub is deliberately minimal: a faithful reimplementation of VS Code
+would be its own source of bugs.
+
+Ten tests now cover what the watcher can get wrong silently — watching the
+wrong path, firing once per HEAD movement during a rebase, reporting with no
+project connected, throwing at a developer who was only committing, stacking
+watchers when the folder changes, and leaving a pending report armed after
+disposal.
+
+**No part of the system is now without automated tests.**
+
+### Confirmed explicitly: the audit trail and multi-issue commits
+
+Asserted rather than inferred. A commit naming two issues produces **two action
+rows**, with distinct target ids, each carrying its own before/after snapshot,
+each independently reversible. Had they collapsed into one row, undo would have
+reversed one issue and left the other — the original A1 bug reappearing at the
+far end of the pipeline, and invisible until somebody undid a run and found half
+of it still applied.
+
+### Deliberate scope limits — not defects, do not "fix"
+
+- Undo covers the last applied run only, not point-in-time restore.
+- Multi-step decomposition is capped at three steps.
+- The approver is recorded but not enforced; the tripwire test is intentional.
+- Actions whose single call touches many rows refuse reversal by design.
+
+### Outside this phase's reach
+
+Latency and model accuracy: 20–130s per model-decided turn is the 2GB VRAM
+ceiling. Confirmed by measurement across three models, unchanged by any software
+work here.

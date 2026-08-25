@@ -66,7 +66,13 @@ export async function proposeTransitionsFromCommits(
     const created = !codeLinksRepo.hasCodeLink(db, repo.id, link.commitHash, issue.id);
     // An amend or rebase gives the same change a new hash. Without this, a
     // rewritten commit is proposed all over again.
-    const alreadySeenAsSubject = codeLinksRepo.hasCodeLinkWithSubject(db, repo.id, issue.id, link.subject);
+    const alreadySeenAsSubject = codeLinksRepo.hasCodeLinkWithSubject(
+      db,
+      repo.id,
+      issue.id,
+      link.subject,
+      link.timestamp,
+    );
     codeLinksRepo.createCodeLink(db, {
       projectId,
       issueId: issue.id,

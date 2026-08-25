@@ -191,3 +191,41 @@ describe("A7 — a fresh local branch", () => {
     expect(afterSwitch.proposed).toEqual([]);
   });
 });
+
+describe("A5b — two different commits that happen to share a subject", () => {
+  /**
+   * The other half of A5. Deduplicating on subject alone was too blunt: a second,
+   * genuinely separate commit reusing a message would be swallowed and never
+   * proposed. The author date separates them, because git preserves it through
+   * amend and rebase -- a rewritten commit keeps its identity, a new one does not
+   * inherit somebody else's.
+   */
+  it("proposes for the second one instead of swallowing it", async () => {
+    const project = await newProject("Ledger", "LED", repo);
+    for (const title of ["First task", "Second task"]) {
+      await app.inject({
+        method: "POST",
+        url: "/issues",
+        payload: { projectId: project, title, status: "in_progress" },
+      });
+    }
+
+    // Same subject, same issue, deliberately different author dates.
+    fs.writeFileSync(path.join(repo, "dup-one.ts"), "first\n");
+    git(repo, "add", "dup-one.ts");
+    git(repo, "-c", "user.name=Test Author", "commit", "--date=2026-01-01T10:00:00", "-m", "LED-1 recurring cleanup");
+
+    const first = await notify(project);
+    expect(first.proposed.map((p) => p.issueKey)).toEqual(["LED-1"]);
+
+    // Approve nothing; just record a second, different commit with the same message.
+    fs.writeFileSync(path.join(repo, "dup-two.ts"), "second\n");
+    git(repo, "add", "dup-two.ts");
+    git(repo, "-c", "user.name=Test Author", "commit", "--date=2026-02-02T10:00:00", "-m", "LED-1 recurring cleanup");
+
+    const second = await notify(project);
+
+    // A real second commit, so a real second link -- not swallowed as a rewrite.
+    expect(second.linked).toBe(1);
+  });
+});

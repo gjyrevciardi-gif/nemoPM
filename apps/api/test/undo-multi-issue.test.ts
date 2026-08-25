@@ -157,3 +157,39 @@ describe("undoing a run whose single action touched many rows", () => {
     expect(after.some((i) => i.title === "Sub two")).toBe(true);
   });
 });
+
+/**
+ * Explicit confirmation, not inference: the audit trail must hold a multi-issue
+ * commit as one row per issue. If it collapsed them into a single row, undo
+ * would reverse one issue and leave the other -- the original A1 bug
+ * reappearing at the other end of the pipeline, and invisible until someone
+ * undid a run and found half of it still applied.
+ */
+describe("what the audit trail stores for a multi-issue commit", () => {
+  it("stores one action row per issue, with distinct targets", async () => {
+    commit("WAL-1, WAL-3: touch two issues again", "pair.ts");
+
+    const proposal = (await app.inject({ method: "POST", url: `/projects/${project}/git/commits` })).json() as {
+      run: { id: string } | null;
+      proposed: { issueKey: string }[];
+    };
+    expect(proposal.proposed.map((p) => p.issueKey).sort()).toEqual(["WAL-1", "WAL-3"]);
+
+    await app.inject({ method: "POST", url: `/projects/${project}/agent/${proposal.run!.id}/apply` });
+
+    const { getDb, runActionsRepo } = await import("@ai-pm/database");
+    const recorded = runActionsRepo.listRunActions(getDb(), proposal.run!.id);
+
+    // Two rows, not one row describing two issues.
+    expect(recorded).toHaveLength(2);
+    expect(new Set(recorded.map((r) => r.targetId)).size).toBe(2);
+    expect(recorded.every((r) => r.reversible)).toBe(true);
+    expect(recorded.every((r) => r.tool === "advanceIssueFromCommit")).toBe(true);
+
+    // Each row carries its own before/after, which is what makes both
+    // reversible independently.
+    expect(recorded.every((r) => r.before !== null && r.after !== null)).toBe(true);
+    expect(recorded.map((r) => r.before!.status)).toEqual(["in_progress", "in_progress"]);
+    expect(recorded.map((r) => r.after!.status)).toEqual(["in_review", "in_review"]);
+  });
+});

@@ -8,8 +8,12 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
-  "activationEvents": ["onStartupFinished"],
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -43,18 +47,57 @@
       }
     ],
     "commands": [
-      { "command": "aiPm.connectProject", "title": "AI PM: Connect or Switch Project" },
-      { "command": "aiPm.disconnectProject", "title": "AI PM: Disconnect Project" },
-      { "command": "aiPm.selectCurrentTask", "title": "AI PM: Select Current Task" },
-      { "command": "aiPm.startCurrentTask", "title": "AI PM: Start Current Task" },
-      { "command": "aiPm.reviewCurrentTask", "title": "AI PM: Move Current Task to Review" },
-      { "command": "aiPm.completeCurrentTask", "title": "AI PM: Complete Current Task" },
-      { "command": "aiPm.createTask", "title": "AI PM: Create Task" },
-      { "command": "aiPm.scanGitActivity", "title": "AI PM: Scan Git Activity" },
-      { "command": "aiPm.projectStatus", "title": "AI PM: Project Status" },
-      { "command": "aiPm.askAiPm", "title": "AI PM: Ask AI PM", "icon": "$(comment-discussion)" },
-      { "command": "aiPm.openChat", "title": "AI PM: Open Chat Panel", "icon": "$(link-external)" },
-      { "command": "aiPm.refresh", "title": "AI PM: Refresh", "icon": "$(refresh)" }
+      {
+        "command": "aiPm.connectProject",
+        "title": "AI PM: Connect or Switch Project"
+      },
+      {
+        "command": "aiPm.disconnectProject",
+        "title": "AI PM: Disconnect Project"
+      },
+      {
+        "command": "aiPm.selectCurrentTask",
+        "title": "AI PM: Select Current Task"
+      },
+      {
+        "command": "aiPm.startCurrentTask",
+        "title": "AI PM: Start Current Task"
+      },
+      {
+        "command": "aiPm.reviewCurrentTask",
+        "title": "AI PM: Move Current Task to Review"
+      },
+      {
+        "command": "aiPm.completeCurrentTask",
+        "title": "AI PM: Complete Current Task"
+      },
+      {
+        "command": "aiPm.createTask",
+        "title": "AI PM: Create Task"
+      },
+      {
+        "command": "aiPm.scanGitActivity",
+        "title": "AI PM: Scan Git Activity"
+      },
+      {
+        "command": "aiPm.projectStatus",
+        "title": "AI PM: Project Status"
+      },
+      {
+        "command": "aiPm.askAiPm",
+        "title": "AI PM: Ask AI PM",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "aiPm.openChat",
+        "title": "AI PM: Open Chat Panel",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "aiPm.refresh",
+        "title": "AI PM: Refresh",
+        "icon": "$(refresh)"
+      }
     ],
     "menus": {
       "view/title": [
@@ -89,12 +132,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "watch": "tsc -p tsconfig.json --watch",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@ai-pm/shared": "workspace:*",
     "@types/node": "^22.7.5",
     "@types/vscode": "^1.85.0",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.2"
   }
 }

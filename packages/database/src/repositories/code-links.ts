@@ -142,9 +142,20 @@ export function hasCodeLinkWithSubject(
   repositoryId: string,
   issueId: string,
   subject: string,
+  committedAt: string | null,
 ): boolean {
+  // Subject alone was too blunt: two genuinely different commits that happen to
+  // share a message on one issue would collapse into one, and the second would
+  // never be proposed. The author date is what separates them, because git
+  // *preserves* it through both amend and rebase -- so a rewritten commit keeps
+  // the identity it had, while a new commit written later does not inherit one.
   const row = db
-    .prepare("SELECT 1 AS present FROM code_links WHERE repository_id = ? AND issue_id = ? AND subject = ? LIMIT 1")
-    .get(repositoryId, issueId, subject) as { present: number } | undefined;
+    .prepare(
+      `SELECT 1 AS present FROM code_links
+        WHERE repository_id = ? AND issue_id = ? AND subject = ?
+          AND IFNULL(committed_at, '') = ?
+        LIMIT 1`,
+    )
+    .get(repositoryId, issueId, subject, committedAt ?? "") as { present: number } | undefined;
   return !!row;
 }
