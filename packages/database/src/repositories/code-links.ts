@@ -114,9 +114,37 @@ export function listCodeLinksForProject(db: Database.Database, projectId: string
  * on new commits -- proposing a transition, say -- need that difference, and
  * must not re-propose the same move on every scan.
  */
-export function hasCodeLink(db: Database.Database, repositoryId: string, commitHash: string): boolean {
+export function hasCodeLink(
+  db: Database.Database,
+  repositoryId: string,
+  commitHash: string,
+  issueId: string | null = null,
+): boolean {
   const row = db
-    .prepare("SELECT 1 AS present FROM code_links WHERE repository_id = ? AND commit_hash = ? LIMIT 1")
-    .get(repositoryId, commitHash) as { present: number } | undefined;
+    .prepare(
+      "SELECT 1 AS present FROM code_links WHERE repository_id = ? AND commit_hash = ? AND IFNULL(issue_id,'') = ? LIMIT 1",
+    )
+    .get(repositoryId, commitHash, issueId ?? "") as { present: number } | undefined;
+  return !!row;
+}
+
+/**
+ * Whether this issue already has a link with this commit subject.
+ *
+ * An amend or a rebase rewrites history: the same logical change comes back
+ * with a new hash, so hash-based deduplication sees a brand new commit and
+ * proposes the same move a second time -- asking a user to approve something
+ * they may have just declined. Subject plus issue is the stable identity of a
+ * change across a rewrite.
+ */
+export function hasCodeLinkWithSubject(
+  db: Database.Database,
+  repositoryId: string,
+  issueId: string,
+  subject: string,
+): boolean {
+  const row = db
+    .prepare("SELECT 1 AS present FROM code_links WHERE repository_id = ? AND issue_id = ? AND subject = ? LIMIT 1")
+    .get(repositoryId, issueId, subject) as { present: number } | undefined;
   return !!row;
 }

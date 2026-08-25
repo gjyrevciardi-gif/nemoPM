@@ -66,6 +66,25 @@ function parseLogWithStats(out: string): CommitRecord[] {
 }
 
 /**
+ * A repository with no commits yet is not an error, it is a new repository.
+ * `git log` disagrees and exits non-zero, so the empty case is translated into
+ * an empty history -- git signals are additive to what the board already knows,
+ * and must never be able to fail a project that simply has not been committed to.
+ * Any other git failure still propagates: silence about a real problem would be
+ * worse than the crash.
+ */
+async function logOrEmpty(args: string[], repoPath: string): Promise<string> {
+  try {
+    return await runGit(args, repoPath);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const noCommitsYet =
+      /does not have any commits yet|unknown revision|bad revision|ambiguous argument 'HEAD'/i.test(message);
+    if (noCommitsYet) return "";
+    throw err;
+  }
+}
+/**
  * Commits authored since a point in time, newest first.
  *
  * One `git log` carries the diff stats too. Asking git per commit was the
@@ -73,7 +92,7 @@ function parseLogWithStats(out: string): CommitRecord[] {
  * a single process into hundreds.
  */
 export async function getCommitsSince(repoPath: string, since: Date | null, limit = 100): Promise<CommitRecord[]> {
-  const out = await runGit(
+  const out = await logOrEmpty(
     [
       "log",
       "-n",
@@ -89,7 +108,7 @@ export async function getCommitsSince(repoPath: string, since: Date | null, limi
 
 /** Commits that touched a given path, newest first. */
 export async function getCommitsTouchingPath(repoPath: string, path: string, limit = 50): Promise<CommitRecord[]> {
-  const out = await runGit(
+  const out = await logOrEmpty(
     ["log", "-n", String(Math.min(limit, MAX_COMMITS)), `--pretty=format:${LOG_FORMAT}`, "--numstat", "--", path],
     repoPath,
   );

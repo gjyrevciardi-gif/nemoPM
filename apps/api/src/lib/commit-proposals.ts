@@ -62,7 +62,11 @@ export async function proposeTransitionsFromCommits(
     // Asked before writing: createCodeLink is INSERT OR IGNORE and reads the
     // row back either way, so afterwards there is no telling a new commit from
     // one already seen -- and a proposal must not reappear on every scan.
-    const created = !codeLinksRepo.hasCodeLink(db, repo.id, link.commitHash);
+    // Newness is per issue, because one commit can name two of them.
+    const created = !codeLinksRepo.hasCodeLink(db, repo.id, link.commitHash, issue.id);
+    // An amend or rebase gives the same change a new hash. Without this, a
+    // rewritten commit is proposed all over again.
+    const alreadySeenAsSubject = codeLinksRepo.hasCodeLinkWithSubject(db, repo.id, issue.id, link.subject);
     codeLinksRepo.createCodeLink(db, {
       projectId,
       issueId: issue.id,
@@ -77,7 +81,7 @@ export async function proposeTransitionsFromCommits(
     if (created) linked++;
 
     // One proposal per issue: five commits against WAL-3 is still one move.
-    if (!created || seenIssues.has(issue.id) || !ADVANCEABLE.has(issue.status)) continue;
+    if (!created || alreadySeenAsSubject || seenIssues.has(issue.id) || !ADVANCEABLE.has(issue.status)) continue;
     seenIssues.add(issue.id);
 
     actions.push({

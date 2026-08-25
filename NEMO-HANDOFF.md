@@ -18,7 +18,8 @@ pnpm monorepo, TypeScript throughout, Zod schemas in `@ai-pm/shared` as the cros
 | `packages/shared` | Zod schemas / types — the contract |
 | `packages/database` | better-sqlite3, file-based migrations, repositories |
 | `packages/domain` | tool registry, permission engine, domain operations |
-| `packages/project-state` | deterministic risk engine |
+| `packages/project-state` | deterministic risk engine (SQLite signals + git signals) |
+| `packages/git-context` | read-only git reader: commits, branches, issue-key links |
 | `packages/ai` | Ollama provider |
 
 **Hard rule: the LLM never touches SQLite.** Every mutation goes through a domain operation, gated by the permission engine.
@@ -121,7 +122,7 @@ The sprint step is instant because it is deterministic, and it is *queued*, not 
 
 ## 6. State
 
-- **217 tests pass** — `ai` 21, `database` 10, `project-state` 17, `domain` 48, `api` 121
+- **271 tests pass** — `ai` 21, `database` 10, `git-context` 21, `project-state` 28, `domain` 48, `api` 143
 - `pnpm typecheck`, `pnpm test`, `pnpm build` all clean
 - Merged to `main` and pushed
 
@@ -143,3 +144,81 @@ Commands: `pnpm dev` (API 43821 + web 5174), `pnpm test`, `pnpm typecheck`, `pnp
 ## 8. Out of scope — do not build
 
 auth, teams, billing, cloud sync, mobile, packaging, Marketplace publishing, Slack, GitLab, third-party integrations, visual redesign.
+
+---
+
+## 9. Edge-case sweep — results
+
+Every case below has a committed test running against real sequential state
+(real repositories built in temp directories, real HTTP calls, real approvals),
+never mocked fixtures. Two of the four defects found were invisible to the
+mocked version of the same check.
+
+| # | Case | Before fix | Fix applied | Test |
+|---|---|---|---|---|
+| A1 | Commit naming two issues | **FAIL** — only the first issue linked | Migration `0010`: uniqueness is per (repo, commit, issue), not per (repo, commit) | `A1 — a commit that names two issues` |
+| A2 | Commit with no valid key | PASS | — | `A2 — commits with no issue key` |
+| A2b | Key hidden in a longer token | *test was wrong* | Corrected the expectation, not the code — see below | `does not find a key inside a longer token` |
+| A3 | Key that exists nowhere | PASS | — | `A3 — a key that exists nowhere` |
+| A4 | Monorepo, two projects one repo | PASS | — | `A3 / A4 — keys belonging to another project` |
+| A5 | Amended / rebased commit | **FAIL** — re-proposed the same move | Dedupe on (issue, commit subject), which survives a rewrite | `A5 — a commit that was amended or rebased` |
+| A6 | header/stats/header/stats parse | PASS (already fixed) | Regression locked permanently | `A6 — the header/stats/header/stats parse` |
+| A7 | Fresh local branch | PASS | — | `A7 — a fresh local branch` |
+| A8 | Repository with no commits | **FAIL** — `git log` threw | Empty history is not an error; other git failures still propagate | `A8 — a repository with no history at all` |
+| C1 | Write queued, not applied | PASS | — | `C1 — a write that was queued, not applied` |
+| C2 | Key proposed by commit, unapproved | PASS | — | `C2 — an issue key proposed by a commit…` |
+| D1 | Turn right after a git proposal | PASS | — | `D1 — the turn right after a git proposal` |
+| D2 | Two projects, one receiving commits | PASS | — | `D2 — two projects, one of them receiving commits` |
+| E1 | Ambiguous read/write phrasing | PASS | — | `E1 — ambiguous phrasing…` (fresh phrasings) |
+
+### Design decision: a commit that names two issues (A1)
+
+`git commit -m "WAL-1, WAL-2: shared login refactor"` is one commit and two
+pieces of work. The original schema could only record it against whichever
+issue was seen first, and the second issue silently got no link and no proposed
+transition — silently being the problem, since nothing reported that half the
+commit's meaning had been dropped.
+
+**Decided: link both, propose both, one run.** The uniqueness that matters is
+one link per (repository, commit, issue). SQLite cannot drop a table-level
+constraint, so `0010` rebuilds the table; `IFNULL(issue_id,'')` keeps the
+guarantee for links with no issue, which would otherwise duplicate freely
+because NULLs are distinct to a unique index. Both moves land in a single run,
+so a human approves the commit's full meaning in one decision rather than two.
+
+### Design decision: rewritten commits (A5)
+
+An amend or rebase gives the same logical change a new hash, so hash-based
+deduplication saw a brand new commit and proposed a move the user may have just
+declined. Identity across a rewrite is (issue, commit subject) — not perfect, as
+two genuinely different commits with identical subjects on one issue collapse
+into one proposal, but re-asking a user to approve something they declined is
+the worse failure.
+
+### A note on A2b — the test was wrong, not the code
+
+`extractIssueKeys("XWAL-1 something")` returns `["XWAL-1"]`, and that is
+correct: XWAL-1 is a well-formed key for a project called XWAL, and grounding
+against real issues is what rejects it later. The property worth pinning is that
+`WAL-1` is never read out of the middle of `XWAL-1`. The expectation was
+corrected rather than the regex loosened.
+
+### Sections B and E2 — not yet runnable
+
+B (undo/rollback) and E2 (HTTP tests through a scripted mock provider) test
+features that do not exist yet: Priority 2 and Priority 3 of the phase brief.
+Those six cases are not marked pass or fail here because there is nothing to run
+them against; they should be written as part of building each feature.
+
+### Running list — cases found while sweeping, not yet chased
+
+Per the sweep rules, recorded rather than pursued:
+
+1. A commit on a branch that is not checked out is invisible to `git log`, which
+   reads HEAD. Links already recorded survive a branch switch, but a commit made
+   on a branch NEMO never sees checked out is never linked at all.
+2. `hasCodeLinkWithSubject` collapses two genuinely different commits that share
+   a subject on one issue. Accepted deliberately (see A5), worth revisiting if
+   users hit it.
+3. The VS Code `CommitWatcher` has no automated test — it needs the VS Code API.
+   Its server-side effects are covered; the watcher itself is verified by hand.
