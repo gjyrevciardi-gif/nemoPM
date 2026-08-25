@@ -440,7 +440,7 @@ async function runProjectAgentTurn(
   const route = routeAgentTools(message, { hasCodeContext: !!codeContext,capabilities:routing.capabilities,projectMode:routing.projectMode,contextSufficiency:preparedContext?.sufficiency });
   const selectedTools=routing.mutationIntent==="none"?route.tools.filter(tool=>tool.kind==="read"):route.tools;
   const provider=getAIProvider();
-  const isLocalModelRuntime=provider.constructor.name==="OllamaProvider";
+  const isLocalModelRuntime=provider.isLocalModel===true;
   const runtime={modelCalls:0,toolsOffered:selectedTools.map(t=>t.name),route:route.primary,routingConfidence:routing.confidence,projectMode:routing.projectMode,intent:routing.intent,capabilities:routing.capabilities,repositoryContext:routing.needsRepositoryContext,codeContext:routing.needsCodeContext,contextSources:["project",...(routing.projectMode==="BOOTSTRAP"?["planning-memory"]:["pm-state"]),...(routing.needsRepositoryContext?["repository"]:[])],agentSteps:0};
   if(/\b(delete|remove|destroy|wipe)\b[\s\S]{0,80}\b(project|all issues|everything)\b/i.test(message)){
     const summary="Project deletion and destructive bulk deletion are blocked.";

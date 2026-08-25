@@ -73,6 +73,17 @@ export interface AgentTurnResult {
  * beyond Ollama later without touching call sites.
  */
 export interface AIProvider {
+  /**
+   * True when this provider is a local model with local-model economics: slow
+   * turns, small context, unreliable tool selection. NEMO answers what it can
+   * deterministically in that case rather than spending a minute on a lookup.
+   *
+   * Declared rather than inferred. This used to be a constructor.name check for
+   * "OllamaProvider", which meant no test double could ever reach those paths --
+   * the deterministic routes were the least tested part of the system precisely
+   * because they are the ones that matter most on the hardware this runs on.
+   */
+  readonly isLocalModel?: boolean;
   chat(input: ChatInput): Promise<ChatResult>;
   structured<T>(input: StructuredInput<T>): Promise<T>;
   /** Multi-step tool-calling loop. Throws AIUnavailableError if the model never settles on a final reply. */

@@ -40,6 +40,8 @@ interface OllamaTagsResponseBody {
 const DEFAULT_MAX_STEPS = 6;
 
 export class OllamaProvider implements AIProvider {
+  readonly isLocalModel = true;
+
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
   private readonly contextTokens: number;
