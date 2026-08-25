@@ -32,6 +32,7 @@ import {makeRoutingDecision,responseContract} from "./project-mode.js";
 import type {RoutingDecision} from "@ai-pm/shared";
 import {buildDeterministicFallback} from "./deterministic-fallback.js";
 import { isReversibleTool, snapshotTarget } from "./undo.js";
+import { contextualiseStep, planSteps } from "./multi-step.js";
 
 /** How much of the project goes into the prompt before the agent must look things up itself. */
 const MAX_CONTEXT_ISSUES = 40;
@@ -384,6 +385,67 @@ export function isRecentChangeQuestion(message: string): boolean {
 }
 
 /**
+ * Runs each step in order, telling every step what the ones before it did.
+ *
+ * Stops at the first step that does nothing: continuing would build later
+ * actions on a result that does not exist. The combined answer reports every
+ * step including the one that stopped it, so a partial result is never
+ * mistaken for a whole one.
+ */
+async function runStepsInOrder(
+  db: Database.Database,
+  projectId: string,
+  steps: string[],
+  options: AgentTurnOptions,
+): Promise<AgentResponse> {
+  const summaries: string[] = [];
+  const toolCalls: AgentResponse["toolCalls"] = [];
+  const actions: AgentResponse["actions"] = [];
+  const appliedResults: AgentResponse["appliedResults"] = [];
+  const replies: string[] = [];
+  let last: AgentResponse | null = null;
+  const pendingRunIds: string[] = [];
+
+  for (const [index, step] of steps.entries()) {
+    const result = await runProjectAgentTurn(db, projectId, contextualiseStep(step, summaries), options);
+    last = result;
+    toolCalls.push(...result.toolCalls);
+    actions.push(...result.actions);
+    appliedResults.push(...result.appliedResults);
+    if (result.runId && result.actions.length > 0) pendingRunIds.push(result.runId);
+    replies.push(`${index + 1}. ${result.reply}`);
+
+    for (const applied of result.appliedResults) if (applied.ok) summaries.push(applied.description);
+    const didSomething = result.toolCalls.some((call) => call.ok) || result.actions.length > 0;
+    if (!didSomething) {
+      replies.push(
+        `Stopped after step ${index + 1}: nothing was done, so the remaining step(s) were not attempted.`,
+      );
+      break;
+    }
+  }
+
+  // Status and run id come from the steps that queued work, not from whichever
+  // step happened to run last: a turn that proposed something is proposed, and
+  // pointing at the wrong run would leave the queued actions unapprovable.
+  if (pendingRunIds.length > 1) {
+    replies.push(
+      `These steps produced ${pendingRunIds.length} separate approvals; approving one does not approve the others.`,
+    );
+  }
+
+  return {
+    ...(last as AgentResponse),
+    reply: replies.join("\n\n"),
+    runId: pendingRunIds[0] ?? null,
+    status: actions.length > 0 ? "proposed" : (last as AgentResponse).status,
+    toolCalls,
+    actions,
+    appliedResults,
+  };
+}
+
+/**
  * Runs one agent turn, then records it so the next turn can read what was said.
  *
  * Recording wraps the turn rather than living inside it because a turn has many
@@ -398,7 +460,17 @@ export async function runProjectAgent(
   message: string,
   options: AgentTurnOptions = {},
 ): Promise<AgentResponse> {
-  const response = await runProjectAgentTurn(db, projectId, message, options);
+  // A compound request is split first, and each step runs through the whole
+  // pipeline in order. Local models measured on this hardware do the first
+  // action of "create a task, then add it to the sprint" and stop, or invent
+  // arguments for the second; the eval data says that is a context-window
+  // problem, not a prompt problem, so the decomposition is deterministic
+  // rather than asked for. Each step still passes through routing and the
+  // permission engine, so this adds orchestration and no new authority.
+  const plan = planSteps(message);
+  const response = plan.isMultiStep
+    ? await runStepsInOrder(db, projectId, plan.steps, options)
+    : await runProjectAgentTurn(db, projectId, message, options);
   try {
     agentTurnsRepo.recordTurn(db, {
       projectId,

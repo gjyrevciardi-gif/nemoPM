@@ -122,7 +122,7 @@ The sprint step is instant because it is deterministic, and it is *queued*, not 
 
 ## 6. State
 
-- **271 tests pass** — `ai` 21, `database` 10, `git-context` 21, `project-state` 28, `domain` 48, `api` 143
+- **297 tests pass** — `ai` 21, `database` 10, `git-context` 21, `project-state` 28, `domain` 48, `api` 169
 - `pnpm typecheck`, `pnpm test`, `pnpm build` all clean
 - Merged to `main` and pushed
 
@@ -222,3 +222,79 @@ Per the sweep rules, recorded rather than pursued:
    users hit it.
 3. The VS Code `CommitWatcher` has no automated test — it needs the VS Code API.
    Its server-side effects are covered; the watcher itself is verified by hand.
+
+---
+
+## 10. Priorities 2–4
+
+### Priority 2 — undo
+
+Apply records a before/after snapshot per action, plus the tool, its arguments
+and who approved it. Undo reverses the last applied run, in one transaction, in
+the opposite order to application.
+
+It refuses *before touching anything* in four cases: an action whose tool has no
+defined inverse (`NO_REVERSAL`), a target somebody edited since (`CONFLICT`), a
+target that no longer exists (`TARGET_GONE`), and a run already undone
+(`ALREADY_REVERTED`). Reversible tools are the ones whose effect is a single
+issue row; `planSprint` creates a sprint, moves issues, completes another and
+starts the new one, and inventing a reversal for that would be worse than
+admitting there isn't one.
+
+**Approver policy, stated deliberately:** every applied action records an
+approver so the trail can answer "who agreed to this". Undo is *not* gated on
+matching it, because a local-first product with no accounts has no second
+identity to check. There is a test that says so, and it is the test that should
+start failing if accounts ever arrive.
+
+### Priority 3 — the test gap, closed
+
+Deterministic routes were gated on `provider.constructor.name === "OllamaProvider"`,
+so no double could reach them: the paths that matter most on this hardware were
+the least covered. The capability is now declared by the provider.
+
+`OllamaShapedProvider` answers in the shapes a real Ollama returns — a native
+call, a call printed into message text, or plain prose — and recovers printed
+calls through the shipped `parseInlineToolCalls` rather than a lookalike. The
+older `ScriptedProvider` hands the server a clean `ToolCall`, which skips every
+layer where small models actually go wrong.
+
+Five routes now covered over HTTP, each asserting the model was consulted zero
+times.
+
+### Priority 4 — multi-step
+
+Compound requests are split deterministically on instruction-joining
+conjunctions, capped at three steps, and each step runs through the whole
+pipeline with the previous steps' results named explicitly. Not solved by better
+prompting, per the brief: a 2GB VRAM ceiling is not a prompt problem.
+
+A second clause only counts as a step if it reads as an instruction, so "create
+a task and then we can discuss it" stays one request.
+
+**A regression an existing test caught:** the combined response first took its
+status from whichever step ran last, so a turn that queued work for approval
+reported `done` and pointed at no run — leaving the queued actions
+unapprovable. Status and run id now come from the steps that actually queued
+something, and a turn producing more than one pending run says so rather than
+silently orphaning one.
+
+### Sweep sections B and E2 — now runnable, and run
+
+| # | Case | Result | Test |
+|---|---|---|---|
+| B1 | Manual edit then undo | PASS | `refuses when the target was edited by hand after the run` |
+| B2 | Undo twice | PASS | `refuses a second undo of the same run` |
+| B3 | Target deleted | PASS | `reports plainly when the target no longer exists` |
+| B4 | Partial reversibility | PASS | `reverses every action or none of them` |
+| B5 | No defined reversal | PASS | `rejects a run containing an action with no defined reversal` |
+| B6 | Approver policy | PASS (deliberate) | `records who approved, and does not gate undo on identity` |
+| E2 | HTTP tests for deterministic routes | PASS | `deterministic routes answer without consulting the model` |
+
+### Still open
+
+1. A commit on a branch that is never checked out is invisible to `git log`.
+2. `hasCodeLinkWithSubject` collapses two different commits sharing a subject.
+3. `CommitWatcher` has no automated test — it needs the VS Code API.
+4. Undo covers single-issue-row tools only; sprint operations are out of scope.
+5. Latency and model accuracy are unchanged — none of this phase touched them.
