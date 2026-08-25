@@ -437,7 +437,58 @@ const reorderBacklogTool: WriteTool<z.infer<typeof reorderBacklogSchema>> = {
   },
 };
 
+
+// -- advanceIssueFromCommit --------------------------------------------------
+
+const advanceFromCommitSchema = z.object({
+  issueKey,
+  status: IssueStatusSchema,
+  /** The commit that is the evidence for this move. */
+  commitHash: z.string().min(4).max(64),
+  commitSubject: z.string().max(300).optional(),
+});
+
+/**
+ * Moves an issue because a commit referenced it.
+ *
+ * Deliberately separate from changeIssueStatus, and deliberately ask-tier.
+ * changeIssueStatus is auto because a person asked for it in that turn; this
+ * fires with no request behind it at all -- a commit landed and NEMO inferred
+ * intent from it. An inference nobody asked for must not silently rewrite the
+ * board, so it is proposed and waits for approval. Reusing changeIssueStatus
+ * and relaxing the apply-time tier check would have been shorter and would have
+ * weakened the one rule that keeps stored proposals honest.
+ */
+const advanceIssueFromCommitTool: WriteTool<z.infer<typeof advanceFromCommitSchema>> = {
+  name: "advanceIssueFromCommit",
+  kind: "write",
+  description:
+    "Move an issue forward because a commit referenced its key. Always requires human approval. " +
+    "Use changeIssueStatus when the user asked for the move directly.",
+  tier: "ask",
+  parameters: {
+    type: "object",
+    properties: {
+      issueKey: { type: "string" },
+      status: { type: "string", enum: [...STATUSES] },
+      commitHash: { type: "string", description: "Commit that references the issue" },
+      commitSubject: { type: "string", description: "Commit subject, for the approval prompt" },
+    },
+    required: ["issueKey", "status", "commitHash"],
+  },
+  schema: advanceFromCommitSchema,
+  describe: (ctx, args) =>
+    `Move ${findIssueByKey(ctx, args.issueKey).key} to ${args.status} — commit ${args.commitHash.slice(0, 7)}` +
+    (args.commitSubject ? ` "${args.commitSubject}"` : "") + " references it",
+  execute: (ctx, args) => {
+    const issue = findIssueByKey(ctx, args.issueKey);
+    const updated = issuesDomain.moveIssue(ctx.db, issue.id, { status: args.status });
+    return { summary: `${updated.key} is now ${updated.status} (commit ${args.commitHash.slice(0, 7)})` };
+  },
+};
+
 export const ISSUE_TOOLS = [
+  advanceIssueFromCommitTool,
   createIssueTool,
   updateIssueTool,
   changeIssueStatusTool,

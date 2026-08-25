@@ -105,3 +105,18 @@ export function listCodeLinksForProject(db: Database.Database, projectId: string
     .all(projectId, limit) as CodeLinkRow[];
   return rows.map(toCodeLink);
 }
+
+/**
+ * Whether this commit is already recorded for this repository.
+ *
+ * createCodeLink is INSERT OR IGNORE and reads the row back either way, so it
+ * cannot tell a new commit from one seen on a previous scan. Callers that act
+ * on new commits -- proposing a transition, say -- need that difference, and
+ * must not re-propose the same move on every scan.
+ */
+export function hasCodeLink(db: Database.Database, repositoryId: string, commitHash: string): boolean {
+  const row = db
+    .prepare("SELECT 1 AS present FROM code_links WHERE repository_id = ? AND commit_hash = ? LIMIT 1")
+    .get(repositoryId, commitHash) as { present: number } | undefined;
+  return !!row;
+}
