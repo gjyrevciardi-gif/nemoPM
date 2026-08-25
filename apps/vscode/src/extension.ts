@@ -5,6 +5,7 @@ import { SelectionState } from "./state.js";
 import { AiPmTreeProvider } from "./treeProvider.js";
 import { AiPmChatPanel, AiPmChatViewProvider, ChatController } from "./chatProvider.js";
 import { LiveSync } from "./liveSync.js";
+import { CommitWatcher } from "./commitWatcher.js";
 
 /** Long enough to fold a burst of writes (an agent run, a board reorder) into one refresh. */
 const REFRESH_DEBOUNCE_MS = 200;
@@ -29,6 +30,31 @@ export function activate(context: vscode.ExtensionContext) {
   );
   const chatProvider = new AiPmChatViewProvider(chatController);
   outputChannel = vscode.window.createOutputChannel("AI PM Status");
+
+  // Passive: a commit lands and NEMO finds out, with nothing asked of the
+  // developer. The extension only reports -- what a commit means, and whether
+  // it may change anything, is decided on the server behind the permission engine.
+  const commitWatcher = new CommitWatcher(
+    () => selection.projectId ?? null,
+    (proposed) => {
+      void vscode.window
+        .showInformationMessage(
+          `NEMO: ${proposed} issue transition(s) proposed from your commits.`,
+          "Review",
+        )
+        .then((choice) => {
+          if (choice === "Review") void vscode.commands.executeCommand("aiPm.chat.focus");
+        });
+    },
+    (message) => outputChannel.appendLine(message),
+  );
+  commitWatcher.start(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null);
+  context.subscriptions.push(commitWatcher);
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() =>
+      commitWatcher.start(vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null),
+    ),
+  );
 
   vscode.window.registerTreeDataProvider("aiPm.sidebar", treeProvider);
   context.subscriptions.push(

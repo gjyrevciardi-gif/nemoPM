@@ -70,6 +70,14 @@ export const api = {
   scanGit: (projectId: string) =>
     post<{ newCommitsDetected: number; branchChanged: boolean }>(`/projects/${projectId}/git/scan`),
 
+  /** Reports local commits. The server decides what they mean and what needs approval. */
+  notifyCommits: (projectId: string) =>
+    post<{
+      linked: number;
+      run: { id: string; status: string } | null;
+      proposed: { issueKey: string; from: string; to: string; commitHash: string }[];
+    }>(`/projects/${projectId}/git/commits`),
+
   getProjectState: (projectId: string) => request<ProjectState>(`/projects/${projectId}/state`),
 
   getAiStatus: (projectId: string, question?: string) =>
