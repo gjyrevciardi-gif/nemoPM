@@ -229,3 +229,121 @@ describe("A5b — two different commits that happen to share a subject", () => {
     expect(second.linked).toBe(1);
   });
 });
+
+describe("A7b — the risk engine's view of a branch that is not checked out", () => {
+  /**
+   * The end of the chain #1 broke. `git log` reads HEAD, so a week of work on a
+   * branch nobody has checked out again used to be invisible -- and the failure
+   * was not a missing signal but a false one: "in progress, nothing committed"
+   * about an issue somebody had been writing code for all week.
+   *
+   * Asserted through the real state endpoint against a real repository, with a
+   * second issue as the control: if the rule had simply gone quiet, that issue
+   * would stop being flagged too, and the test would prove nothing.
+   */
+  it("does not claim an issue has no commits when the commits are on an unmerged branch", async () => {
+    const branchRepo = fs.mkdtempSync(path.join(os.tmpdir(), "nemo-branchy-"));
+    git(branchRepo, "init", "-b", "main");
+    git(branchRepo, "config", "user.email", "test@example.com");
+    git(branchRepo, "config", "user.name", "Test Author");
+    fs.writeFileSync(path.join(branchRepo, "readme.md"), "start\n");
+    git(branchRepo, "add", "readme.md");
+    git(branchRepo, "commit", "-m", "initial");
+
+    const project = await newProject("Branchy", "BR", branchRepo);
+    for (const title of ["Worked on a branch", "Genuinely untouched"]) {
+      await app.inject({ method: "POST", url: "/issues", payload: { projectId: project, title, status: "in_progress" } });
+    }
+
+    // Both issues have been in progress well past the no-commit threshold.
+    const { getDb } = await import("@ai-pm/database");
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+    getDb()
+      .prepare("UPDATE issues SET started_at = ?, updated_at = ? WHERE project_id = ?")
+      .run(tenDaysAgo, tenDaysAgo, project);
+
+    // Real work, committed on a branch, and then left there.
+    git(branchRepo, "checkout", "-b", "feature/session-work");
+    fs.writeFileSync(path.join(branchRepo, "session.ts"), "export const session = 1;\n");
+    git(branchRepo, "add", "session.ts");
+    git(branchRepo, "commit", "-m", "BR-1 build the session layer");
+    git(branchRepo, "checkout", "main");
+
+    // The commit really is unreachable from HEAD -- otherwise this proves nothing.
+    expect(git(branchRepo, "log", "--oneline")).not.toContain("BR-1");
+
+    const rows = (await app.inject({ method: "GET", url: `/projects/${project}/issues` })).json() as {
+      id: string;
+      key: string;
+    }[];
+    const idOf = (key: string) => rows.find((i) => i.key === key)!.id;
+
+    const state = (await app.inject({ method: "GET", url: `/projects/${project}/state` })).json() as {
+      risks: { type: string; issueId: string | null; message: string }[];
+    };
+    const noCommitRisks = state.risks.filter((r) => r.type === "no_commits");
+
+    expect(noCommitRisks.map((r) => r.issueId)).not.toContain(idOf("BR-1"));
+    // The control: the rule is live, it simply has nothing to say about BR-1.
+    expect(noCommitRisks.map((r) => r.issueId)).toContain(idOf("BR-2"));
+
+    fs.rmSync(branchRepo, { recursive: true, force: true });
+  });
+});
+
+describe("A5c — the residual collision: same subject AND same author date", () => {
+  /**
+   * Documented, not fixed -- and narrower than it first looks. Change identity
+   * is (issue, subject, author date), so two commits sharing both are
+   * indistinguishable under it.
+   *
+   * What that costs is only the second *proposal*, across separate scans. The
+   * link itself is always recorded, because recording what the repository says
+   * is not conditional on NEMO's inference about it. So the audit trail stays
+   * complete and the collision can only ever cost a suggestion -- which is the
+   * same direction A5 deliberately errs in.
+   *
+   * This asserts the known behaviour rather than the desired one, so the limit
+   * has a reproduction instead of a sentence in a document, and so anyone who
+   * later folds the hash into the identity sees exactly what they changed.
+   */
+  it("records both commits but proposes only once", async () => {
+    const project = await newProject("Collide", "COL", repo);
+    const issueId = (
+      (
+        await app.inject({
+          method: "POST",
+          url: "/issues",
+          payload: { projectId: project, title: "Colliding work", status: "in_progress" },
+        })
+      ).json() as { id: string }
+    ).id;
+
+    // Same issue, same subject, same author date -- different content, so
+    // genuinely different commits with different hashes.
+    const sameDate = "2026-03-03T09:00:00";
+    fs.writeFileSync(path.join(repo, "collide-one.ts"), "// one");
+    git(repo, "add", "collide-one.ts");
+    git(repo, "commit", `--date=${sameDate}`, "-m", "COL-1 nightly cleanup");
+
+    const first = await notify(project);
+    expect(first.proposed.map((p) => p.issueKey)).toEqual(["COL-1"]);
+
+    // Nobody approves it. Then a second, separate commit arrives.
+    fs.writeFileSync(path.join(repo, "collide-two.ts"), "// two");
+    git(repo, "add", "collide-two.ts");
+    git(repo, "commit", `--date=${sameDate}`, "-m", "COL-1 nightly cleanup");
+
+    const second = await notify(project);
+
+    // The link is kept -- the audit trail is never the thing that is lost.
+    expect(second.linked).toBe(1);
+    const { getDb, codeLinksRepo } = await import("@ai-pm/database");
+    const hashes = new Set(codeLinksRepo.listCodeLinksForIssue(getDb(), issueId).map((l) => l.commitHash));
+    expect(hashes.size).toBe(2);
+
+    // This is the cost, and all of it: the repeat suggestion is suppressed,
+    // exactly as it would be for a rebase of the first commit.
+    expect(second.proposed).toEqual([]);
+  });
+});

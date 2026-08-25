@@ -14,22 +14,38 @@ without silently completing your work for you.
 - **Board & backlog** -- epics/stories/tasks/bugs/subtasks across Backlog -> Todo -> In Progress ->
   In Review -> Done, with drag-and-drop, dependencies, and story points.
 - **Sprints** -- create, start, and complete sprints; sprint-scoped progress metrics.
-- **Git intelligence** -- scans a connected local repository for new commits and links them as
-  *evidence* to whichever issue is currently in progress. Git activity never changes issue status
-  on its own -- only an explicit Start/Review/Complete action does.
-- **Deterministic risk engine** -- three rules (stale task, blocked dependency, sprint overload),
-  each risk carrying concrete evidence, not a vibe.
+- **Git intelligence** -- reads a connected local repository across every local branch: commits,
+  branch activity, and the issue keys named in commit messages. Commits are linked as *evidence*
+  to the issues they name (or, for a plain scan, to whichever issue is in progress), and a commit
+  naming an issue produces a *proposed* move to review. Git activity never changes issue status on
+  its own -- a proposal waits for approval, and only an explicit Start/Review/Complete action or an
+  approved proposal moves anything.
+- **Deterministic risk engine** -- five rules: stale task, blocked dependency and sprint overload
+  from the database, plus no-commits and abandoned-branch from the repository. Each risk carries
+  concrete evidence, not a vibe.
 - **AI PM** -- asks a local Ollama model for a concise status/risk summary built from the
   deterministic state (not raw DB dumps), and falls back to a fully deterministic summary if
   Ollama is offline, times out, or returns garbage. The app never crashes or hangs because the AI
   is unavailable.
 - **AI task planning** -- turns a feature request into a previewable task breakdown; nothing is
   saved until you explicitly confirm.
-- **VS Code extension** -- a sidebar showing your project/current task/sprint/risks, plus commands
-  to connect a project, select/start/review/complete your current task, create tasks, scan Git
-  activity, and get an AI status report -- all from the editor. **Ask AI PM** lets you type a free-
-  form request ("organize my sprint", "plan the login page") and, after you confirm the generated
-  plan, it creates the tasks and starts a sprint for them automatically -- the same
+- **Agent turns** -- ask for something in plain language and the model picks tools rather than
+  writing prose about them. Every tool sits in one of three permission tiers, enforced on the
+  server where the model cannot see them: reads and low-risk writes run immediately, anything
+  consequential is described and queued for you to approve, and a few things (deleting a project,
+  bulk deletes) are never callable at all. Approving a run applies all of its actions or none.
+  A compound request is split into at most three steps and run in order.
+- **Undo** -- applying a run records what each action touched, before and after, and who approved
+  it. `agent/undo` reverses the last applied run in one transaction. It refuses, by name and
+  before touching anything, when an action has no defined inverse, when someone edited the target
+  since, when the target is gone, or when the run was already undone -- a run that cannot be fully
+  reversed is not partly reversed.
+- **VS Code extension** -- a sidebar showing your project/current task/sprint/risks, a chat panel,
+  and commands to connect or disconnect a project, select/start/review/complete your current task,
+  create tasks, scan Git activity, and get an AI status report -- all from the editor. It also
+  watches for commits in the background and links them without being asked. **Ask AI PM** lets you
+  type a free-form request ("organize my sprint", "plan the login page") and, after you confirm
+  the generated plan, it creates the tasks and starts a sprint for them automatically -- the same
   generate-plan/confirm API the web app uses, just one step from the editor.
 
 ## Architecture
@@ -38,11 +54,13 @@ without silently completing your work for you.
 apps/
   api/      Fastify + Zod REST API (port 43821)
   web/      React + Vite + Tailwind board/dashboard (port 5174)
-  vscode/   VS Code extension (sidebar + 10 commands)
+  vscode/   VS Code extension (sidebar + 12 commands, passive commit awareness)
 packages/
   database/       SQLite (better-sqlite3) schema, migrations, repositories, seed script
   shared/         Zod schemas + inferred types shared by every app
+  domain/         Tool registry, permission engine, domain operations (every write goes through it)
   project-state/  Deterministic Project State Engine + Risk Engine (pure functions, no I/O)
+  git-context/    Read-only git reader: commits, branches, issue-key links (no writes, ever)
   ai/             AIProvider abstraction + OllamaProvider (safe-failure by design)
 ```
 
@@ -74,10 +92,19 @@ access -- so it's fully unit-tested in isolation (`packages/project-state/test`)
 Re-running a scan with no new commits is a no-op for commit/file-change events (only a summary
 `git.scan` activity is recorded), so the activity feed doesn't get spammed.
 
+A second, key-driven path (`POST /projects/:id/git/commits`) reads every local branch -- not just
+the checked-out one, since work committed on a branch nobody has checked out again would otherwise
+be invisible -- and links each commit to the issues its message names. Where an issue is somewhere
+a commit is news, it queues a *proposed* move to `in_review` as an agent run awaiting approval.
+The link is recorded whether or not the proposal is approved: what the repository says happened is
+a fact, independent of whether you agree with the inference drawn from it. The VS Code extension
+calls this endpoint automatically when it sees git move HEAD, which is what makes commit awareness
+passive rather than a command you have to remember.
+
 ### How risk detection works
 
-`packages/project-state/src/risk-engine.ts` implements three rules, each documented with its exact
-threshold in code:
+`packages/project-state/src/risk-engine.ts` implements three database-derived rules, each
+documented with its exact threshold in code:
 
 - **Stale task** -- an `in_progress` issue with no activity for more than 2 days (medium), escalating
   to high past 5 days.
@@ -85,6 +112,13 @@ threshold in code:
 - **Sprint overload** -- compares the sprint's remaining story points against its observed
   completion pace (points completed so far divided by days elapsed); flags when, at that pace,
   finishing the remaining work would take significantly longer than the time already spent.
+
+`packages/project-state/src/git-risk-engine.ts` adds two more, derived from the repository rather
+than the board -- the board says what someone claimed, the repository says what was written:
+
+- **No commits** -- an `in_progress` issue with no commit referencing it for more than 3 days.
+- **Abandoned branch** -- an unmerged branch carrying an open issue with no commits for more than
+  10 days. Merged branches are ignored however old they are: a merged branch is finished work.
 
 Every risk carries an `evidence` array of concrete facts (statuses, timestamps, point counts) --
 never a bare assertion. Risks are reconciled (opened/updated/resolved) each time project state is
@@ -116,6 +150,7 @@ defaults used if `.env` is absent):
 DATABASE_PATH=./data/ai-pm.db
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 OLLAMA_MODEL=
+OLLAMA_TIMEOUT_MS=120000
 API_PORT=43821
 ```
 
@@ -126,7 +161,10 @@ invoked from.
 ## Database setup & seed data
 
 The SQLite database and its schema are created automatically (migrations run on first connection --
-no separate `db:migrate` step). To populate the demo project:
+no separate `db:migrate` step). The same applies to an existing database: any migration it has not
+seen is applied, in order, in a transaction, the next time the API connects. Nothing needs a fresh
+database -- including `0010`, which rebuilds `code_links` in place because SQLite cannot drop a
+table-level constraint. To populate the demo project:
 
 ```bash
 pnpm seed
@@ -173,13 +211,16 @@ workspace (this is the standard way to develop a VS Code extension):
 4. In the Extension Development Host window, open the folder for the Git repo you want to track
    (any local repo works).
 5. Click the **AI PM** icon in the Activity Bar (left sidebar). It starts disconnected.
-6. Run **AI PM: Connect Project** from the Command Palette (Cmd/Ctrl+Shift+P) -- requires the API
-   server to be running (`pnpm dev` in the monorepo root, in a separate terminal). Pick a project;
-   if the currently open workspace folder matches it, or once you connect it, its path is saved as
-   that project's `repositoryPath` automatically.
+6. Run **AI PM: Connect or Switch Project** from the Command Palette (Cmd/Ctrl+Shift+P) -- requires
+   the API server to be running (`pnpm dev` in the monorepo root, in a separate terminal). Pick a
+   project; if the currently open workspace folder matches it, or once you connect it, its path is
+   saved as that project's `repositoryPath` automatically.
 7. Run **AI PM: Select Current Task**, pick an issue.
 8. Run **AI PM: Start Current Task** -- the sidebar and the web board both reflect the change.
-9. Make a commit in the repo, then run **AI PM: Scan Git Activity**.
+9. Make a commit in the repo whose message names an issue key (e.g. "ACME-2 wire up login"). The
+   extension notices HEAD move and links it on its own, about a second and a half later; a commit
+   naming an issue offers to move it to review, and nothing happens unless you accept. **AI PM:
+   Scan Git Activity** still exists for the older evidence-only scan, and to force a check.
 10. Run **AI PM: Project Status** -- opens an output channel with a concise status (real AI or
     offline summary, clearly labeled).
 11. Run **AI PM: Complete Current Task** -- refresh the web board; the issue is now in Done.
@@ -191,7 +232,7 @@ workspace (this is the standard way to develop a VS Code extension):
     clicking Confirm in the web app, just in one step. Nothing is created until you confirm; if
     Ollama is offline the command fails clearly instead of inventing a plan.
 
-All 10 commands are also reachable from the Command Palette by typing "AI PM". The API URL is
+All 12 commands are also reachable from the Command Palette by typing "AI PM". The API URL is
 configurable via the `aiPm.apiUrl` setting (default `http://127.0.0.1:43821`).
 
 ## Environment variables reference
@@ -201,6 +242,7 @@ configurable via the `aiPm.apiUrl` setting (default `http://127.0.0.1:43821`).
 | `DATABASE_PATH`    | `./data/ai-pm.db`           | Relative to repo root, or an absolute path      |
 | `OLLAMA_BASE_URL`  | `http://127.0.0.1:11434`    | Ollama's local API                              |
 | `OLLAMA_MODEL`     | *(blank -> auto-detect)*    | Pin a specific model name if you have several   |
+| `OLLAMA_TIMEOUT_MS`| `120000`                    | Per-call timeout; raise it on slower hardware   |
 | `API_PORT`         | `43821`                     | API server port                                 |
 | `LOG_LEVEL`        | `info`                      | Fastify log level                               |
 
@@ -228,9 +270,15 @@ POST   /sprints/:id/start                      POST /sprints/:id/complete
 GET    /projects/:projectId/activity           (supports ?limit= and ?issueId=)
 
 GET    /projects/:projectId/git/status         POST /projects/:projectId/git/scan
+POST   /projects/:projectId/git/commits        (link commits by issue key; queues proposals)
 
 GET    /projects/:projectId/state              (the full deterministic ProjectState)
 GET    /projects/:projectId/risks
+
+POST   /projects/:projectId/agent              { message: string }   (an agent turn)
+POST   /projects/:projectId/agent/:runId/apply | /reject
+GET    /projects/:projectId/agent/runs          GET /projects/:projectId/agent/runs/:runId
+POST   /projects/:projectId/agent/undo         { runId?: string }   (reverses the last applied run)
 
 POST   /projects/:projectId/ai/status          { question?: string }
 POST   /projects/:projectId/ai/plan-task       { request: string }
@@ -252,9 +300,11 @@ POST   /projects/:projectId/ai/plan-task/confirm   (not in the original literal 
   concepts are related but intentionally decoupled.
 - **Sprint overload thresholds are heuristic**, not a certified estimation model -- documented and
   adjustable in `packages/project-state/src/risk-engine.ts`.
-- **Git scan is pull-based** (you or the VS Code extension trigger it), not a filesystem watcher --
-  matches the spec's command-driven workflow, but means commits made without a scan aren't
-  reflected until the next scan.
+- **`git/scan` is still pull-based** (you or the VS Code extension trigger it). Commit *linking*
+  is not: the extension watches `.git/logs/HEAD` and calls `git/commits` on its own, so commits
+  are linked and proposals raised without a command. It debounces 1.5s, because a rebase moves HEAD
+  several times in a row and that is one event, not five. Outside VS Code, linking is still a call
+  you make.
 - **The VS Code extension uses global `fetch`** (no bundled HTTP dependency) -- requires a
   reasonably current VS Code (tested against the 1.85+ engine target; older Electron/Node versions
   inside VS Code may lack global `fetch`).
@@ -262,11 +312,13 @@ POST   /projects/:projectId/ai/plan-task/confirm   (not in the original literal 
   index; it doesn't re-persist every other card's index in the same operation. Fine at demo/small-
   project scale (this is a single-user local tool); would need a batch reorder endpoint at larger
   scale.
-- The VS Code extension was compiled and its logic reviewed carefully, and every API call it makes
-  was independently exercised end-to-end via curl (see Verification in the completion summary),
-  but it was **not run inside a live Extension Development Host**, since no VS Code GUI was
-  available in the environment this was built in. The risk is confined to VS Code API usage
-  specifics, not the underlying request logic.
+- **The extension's commands have no automated tests, and were never run in a live Extension
+  Development Host** -- no VS Code GUI was available in the environment this was built in. Every
+  API call they make was exercised end-to-end against the server, so the risk is confined to VS
+  Code API usage specifics rather than request logic. The one piece with real tests is the commit
+  watcher (`apps/vscode/test/`), which runs against a small stub of the editor API because
+  `vscode` is provided by the editor and does not exist on disk; it was the piece worth testing
+  first because what it gets wrong is silent.
 
 ## Future roadmap
 
@@ -274,7 +326,8 @@ POST   /projects/:projectId/ai/plan-task/confirm   (not in the original literal 
 2. Sprint burndown chart using the same deterministic metrics already computed.
 3. Configurable risk thresholds via the `settings` table (schema already supports arbitrary
    key/value settings).
-4. Push-based Git awareness (file watcher / git hook) as an alternative to manual/command-driven
-   scanning.
+4. ~~Push-based Git awareness (file watcher / git hook) as an alternative to manual/command-driven
+   scanning.~~ **Done** -- the extension watches `.git/logs/HEAD`. A git hook remains an option for
+   people who do not work in VS Code.
 5. Optional multi-machine sync for the same local-first project (e.g. a synced file), without
    introducing hosted accounts or multi-user concepts.
