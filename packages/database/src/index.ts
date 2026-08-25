@@ -20,3 +20,5 @@ export * as learningRepo from "./repositories/learning.js";
 
 export type { CodeLink } from "./repositories/code-links.js";
 export type { AgentRun } from "./repositories/agent-runs.js";
+export * as runActionsRepo from "./repositories/run-actions.js";
+export type { RunActionRecord } from "./repositories/run-actions.js";

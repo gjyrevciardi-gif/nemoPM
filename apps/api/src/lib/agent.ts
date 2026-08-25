@@ -1,5 +1,5 @@
 import type Database from "better-sqlite3";
-import { activitiesRepo, agentRunsRepo, agentTurnsRepo, decisionsRepo, dependenciesRepo, issuesRepo, sprintsRepo } from "@ai-pm/database";
+import { activitiesRepo, agentRunsRepo, agentTurnsRepo, runActionsRepo, decisionsRepo, dependenciesRepo, issuesRepo, sprintsRepo } from "@ai-pm/database";
 import {
   callableTools,
   routeAgentTools,
@@ -31,6 +31,7 @@ import {learningRepo} from "@ai-pm/database";
 import {makeRoutingDecision,responseContract} from "./project-mode.js";
 import type {RoutingDecision} from "@ai-pm/shared";
 import {buildDeterministicFallback} from "./deterministic-fallback.js";
+import { isReversibleTool, snapshotTarget } from "./undo.js";
 
 /** How much of the project goes into the prompt before the agent must look things up itself. */
 const MAX_CONTEXT_ISSUES = 40;
@@ -674,6 +675,27 @@ function loadRunForDecision(db: Database.Database, projectId: string, runId: str
 }
 
 /**
+ * The issue an action targets, if it targets one.
+ *
+ * Resolved by key before the action runs and again after, because a create has
+ * no target until it exists. Anything that names no issue has no single row to
+ * snapshot, and is recorded as not reversible.
+ */
+function resolveIssueTarget(ctx: ToolContext, action: AgentAction): string | null {
+  const key = (action.args as { issueKey?: unknown }).issueKey;
+  const title = (action.args as { title?: unknown }).title;
+  if (!ctx.projectId) return null;
+  const issues = issuesRepo.listIssuesByProject(ctx.db, ctx.projectId);
+  if (typeof key === "string") {
+    return issues.find((issue) => issue.key.toUpperCase() === key.toUpperCase())?.id ?? null;
+  }
+  if (typeof title === "string") {
+    const matches = issues.filter((issue) => issue.title === title);
+    return matches.length === 1 ? matches[0]!.id : null;
+  }
+  return null;
+}
+/**
  * Applies an approved plan atomically: all of it, or none of it.
  *
  * Every action runs inside one SQLite transaction. A failure at action 5
@@ -706,7 +728,25 @@ export function applyAgentRun(db: Database.Database, projectId: string, runId: s
         }
 
         try {
+          // Captured either side of the call: reversal needs the state the action
+          // replaced, and after the fact that state is gone.
+          const targetIdBefore = resolveIssueTarget(ctx, action);
+          const before = snapshotTarget(db, targetIdBefore);
           const outcome = resolved.tool.execute(ctx, resolved.args);
+          const targetId = targetIdBefore ?? resolveIssueTarget(ctx, action);
+          runActionsRepo.recordRunAction(db, {
+            runId,
+            projectId,
+            actionIndex: index,
+            tool: action.tool,
+            args: action.args,
+            targetKind: targetId ? "issue" : null,
+            targetId,
+            before,
+            after: snapshotTarget(db, targetId),
+            reversible: isReversibleTool(action.tool) && !!targetId,
+            approver: "local",
+          });
           results.push({ tool: action.tool, description: outcome.summary, ok: true, error: null });
         } catch (err) {
           failure = { index, description: action.description, error: errorMessage(err) };

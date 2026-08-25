@@ -56,7 +56,7 @@ export const AgentPlanSchema = z.object({
 });
 export type AgentPlan = z.infer<typeof AgentPlanSchema>;
 
-export const AgentRunStatusSchema = z.enum(["proposed", "applied", "rejected", "failed", "expired"]);
+export const AgentRunStatusSchema = z.enum(["proposed", "applied", "rejected", "failed", "expired", "reverted"]);
 export type AgentRunStatus = z.infer<typeof AgentRunStatusSchema>;
 
 export const AgentRequestSchema = z.object({

@@ -7,6 +7,7 @@ import { applyAgentRun, rejectAgentRun, runProjectAgent } from "../lib/agent.js"
 import {ProjectModeSchema,FailureCategorySchema,TrainingProvenanceSchema,TrainingReviewStatusSchema,RoutingDecisionSchema} from "@ai-pm/shared";
 import {z} from "zod";
 import {collectModeFeatures,detectProjectMode} from "../lib/project-mode.js";
+import { undoLastRun } from "../lib/undo.js";
 
 export async function agentRoutes(app: FastifyInstance) {
   const db = getDb();
@@ -106,4 +107,22 @@ export async function agentRoutes(app: FastifyInstance) {
   app.post<{Params:{projectId:string}}>("/projects/:projectId/agent/feedback",async req=>{requireProject(req.params.projectId);const body=FeedbackSchema.parse(req.body);const id=learningRepo.recordLearningExample(db,{projectId:req.params.projectId,...body});return{id,reviewStatus:body.reviewStatus};});
   app.put<{Params:{projectId:string;exampleId:string}}>("/projects/:projectId/agent/feedback/:exampleId/review",async req=>{requireProject(req.params.projectId);const{status}=z.object({status:z.enum(["APPROVED","REJECTED"])}).parse(req.body);if(!learningRepo.reviewLearningExample(db,req.params.projectId,req.params.exampleId,status))throw notFound("Learning example",req.params.exampleId);return{id:req.params.exampleId,status};});
   app.get<{Params:{projectId:string}}>("/projects/:projectId/agent/training-export",async req=>{requireProject(req.params.projectId);return{version:1,examples:learningRepo.exportApprovedTrainingData(db,req.params.projectId),stats:learningRepo.learningStats(db),privacy:"absolute paths, secrets, tokens, passwords, and source-like fields are removed"};});
+
+  /**
+   * Undoes the most recent applied run, or a named one. Refuses rather than
+   * guesses when the world has moved on since it was applied.
+   */
+  app.post<{ Params: { projectId: string }; Body?: { runId?: string } }>(
+    "/projects/:projectId/agent/undo",
+    async (req) => {
+      requireProject(req.params.projectId);
+      const result = undoLastRun(db, req.params.projectId, req.body?.runId);
+      activitiesRepo.recordActivity(db, {
+        projectId: req.params.projectId,
+        type: "ai.agent_run",
+        payload: { undo: result.runId, reversed: result.reversed.length },
+      });
+      return result;
+    },
+  );
 }
