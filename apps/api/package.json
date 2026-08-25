@@ -10,8 +10,8 @@
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.check.json",
     "test": "vitest run",
-    "eval:model": "tsx scripts/eval-real-model.ts"
-    ,"measure:prompt": "tsx scripts/measure-prompt.ts",
+    "eval:model": "tsx scripts/eval-real-model.ts",
+    "measure:prompt": "tsx scripts/measure-prompt.ts",
     "eval:models": "tsx scripts/benchmark-models.ts",
     "eval:ground-truth": "tsx scripts/eval-ground-truth.ts",
     "eval:routing": "tsx scripts/eval-routing.ts",
@@ -29,7 +29,8 @@
     "dotenv": "^16.4.5",
     "fastify": "^5.0.0",
     "pino-pretty": "^11.2.2",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "@ai-pm/git-context": "workspace:*"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",

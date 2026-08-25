@@ -9,9 +9,10 @@ import {
   settingsRepo,
   sprintsRepo,
 } from "@ai-pm/database";
-import { computeProjectState, computeRisks } from "@ai-pm/project-state";
+import { computeGitRisks, computeProjectState, computeRisks } from "@ai-pm/project-state";
 import type { ProjectState } from "@ai-pm/shared";
 import { getGitStatus } from "./git.js";
+import { collectGitSignals } from "./git-signals.js";
 import { notFound } from "./errors.js";
 
 export async function buildProjectState(db: Database.Database, projectId: string): Promise<ProjectState> {
@@ -33,7 +34,19 @@ export async function buildProjectState(db: Database.Database, projectId: string
 
   const now = new Date();
   const thresholds = settingsRepo.getRiskThresholds(db);
-  const computed = computeRisks({ issues, dependencies, activeSprint, lastActivityAtByIssue, now, thresholds });
+  // Two independent sources of truth, deliberately combined rather than merged:
+  // the board says what someone claimed, the repository says what was written.
+  const signals = await collectGitSignals(db, projectId, repo?.path ?? project.repositoryPath ?? null);
+  const computed = [
+    ...computeRisks({ issues, dependencies, activeSprint, lastActivityAtByIssue, now, thresholds }),
+    ...computeGitRisks({
+      issues,
+      lastCommitAtByIssue: signals.lastCommitAtByIssue,
+      branches: signals.branches,
+      now,
+      thresholds,
+    }),
+  ];
   const risks = risksRepo.reconcileRisks(db, projectId, computed);
 
   return computeProjectState({

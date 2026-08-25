@@ -13,6 +13,10 @@ export const RiskThresholdsSchema = z.object({
    * overloaded relative to its observed pace.
    */
   sprintPaceRatioThreshold: z.number().positive(),
+  /** An in-progress issue with no commit referencing it for this many days is a risk. */
+  noCommitDays: z.number().positive(),
+  /** An unmerged branch with no commits for this many days is considered abandoned. */
+  abandonedBranchDays: z.number().positive(),
 });
 export type RiskThresholds = z.infer<typeof RiskThresholdsSchema>;
 
@@ -21,6 +25,8 @@ export const DEFAULT_RISK_THRESHOLDS: RiskThresholds = {
   staleHighDays: 5,
   sprintMinDaysBeforeFlag: 2,
   sprintPaceRatioThreshold: 1.5,
+  noCommitDays: 3,
+  abandonedBranchDays: 10,
 };
 
 export const UpdateRiskThresholdsInputSchema = RiskThresholdsSchema.partial();

@@ -11,3 +11,5 @@ export { computeProjectState } from "./state-engine.js";
 export type { ProjectStateInput } from "./state-engine.js";
 
 export { computeBurndown } from "./burndown-engine.js";
+export { computeGitRisks, computeNoCommitRisks, computeAbandonedBranchRisks } from "./git-risk-engine.js";
+export type { GitRiskInput } from "./git-risk-engine.js";

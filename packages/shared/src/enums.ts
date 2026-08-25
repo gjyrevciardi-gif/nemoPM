@@ -18,7 +18,14 @@ export type Priority = z.infer<typeof PrioritySchema>;
 export const SprintStatusSchema = z.enum(["planned", "active", "completed"]);
 export type SprintStatus = z.infer<typeof SprintStatusSchema>;
 
-export const RiskTypeSchema = z.enum(["stale_task", "dependency", "sprint_delivery"]);
+export const RiskTypeSchema = z.enum([
+  "stale_task",
+  "dependency",
+  "sprint_delivery",
+  // Git signals: what the repository says, as opposed to what the board says.
+  "no_commits",
+  "abandoned_branch",
+]);
 export type RiskType = z.infer<typeof RiskTypeSchema>;
 
 export const RiskSeveritySchema = z.enum(["low", "medium", "high"]);

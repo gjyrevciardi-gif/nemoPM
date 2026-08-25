@@ -14,7 +14,8 @@
     "@ai-pm/database": "workspace:*",
     "@ai-pm/shared": "workspace:*",
     "better-sqlite3": "^13.0.3",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "@ai-pm/git-context": "workspace:*"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",

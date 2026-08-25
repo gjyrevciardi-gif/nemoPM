@@ -26,6 +26,9 @@ importers:
       '@ai-pm/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@ai-pm/git-context':
+        specifier: workspace:*
+        version: link:../../packages/git-context
       '@ai-pm/project-state':
         specifier: workspace:*
         version: link:../../packages/project-state
@@ -192,6 +195,9 @@ importers:
       '@ai-pm/database':
         specifier: workspace:*
         version: link:../database
+      '@ai-pm/git-context':
+        specifier: workspace:*
+        version: link:../git-context
       '@ai-pm/shared':
         specifier: workspace:*
         version: link:../shared
@@ -215,8 +221,27 @@ importers:
         specifier: ^2.1.2
         version: 2.1.9(@types/node@22.20.1)(supports-color@8.1.1)
 
+  packages/git-context:
+    dependencies:
+      '@ai-pm/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@types/node':
+        specifier: ^22.7.5
+        version: 22.20.1
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.2
+        version: 2.1.9(@types/node@22.20.1)(supports-color@8.1.1)
+
   packages/project-state:
     dependencies:
+      '@ai-pm/git-context':
+        specifier: workspace:*
+        version: link:../git-context
       '@ai-pm/shared':
         specifier: workspace:*
         version: link:../shared

@@ -1,5 +1,5 @@
 {
-  "name": "@ai-pm/project-state",
+  "name": "@ai-pm/git-context",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,8 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@ai-pm/shared": "workspace:*",
-    "@ai-pm/git-context": "workspace:*"
+    "@ai-pm/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.7.5",
