@@ -19,7 +19,7 @@ const intentRules:Array<[RegExp,string,string[],"none"|"ask"|"auto"|"blocked"]>=
 [/\b(risk|risks|blockers?)\b/i,"project.risk",["risk_read","common_read"],"none"],
 [/\b(next actions?|what next|what .* next|next steps?|do next)\b/i,"project.next_actions",["common_read"],"none"],
 [/\b(create|add|open|file|log)\b.*\b(issue|bug|task|story|ticket)\b/i,"issue.create",["issue_create"],"ask"],
-[/\b(update|change|move|mark|set|priority|story points?|estimate)\b.*(?:\b(issue|task|bug|story|status|priority|story points?)\b|\b[A-Z]+-\d+\b)|\b[A-Z]+-\d+\b.*\b(story points?|priority|status)\b/i,"issue.update",["issue_update"],"ask"],
+[/\b(update|change|move|mark|set|rename|retitle|priority|story points?|estimate)\b.*(?:\b(issues?|tasks?|bugs?|stor(?:y|ies)|titles?|status|priority|story points?)\b|\b[A-Z]+-\d+\b)|\b[A-Z]+-\d+\b.*\b(story points?|priority|status)\b/i,"issue.update",["issue_update"],"ask"],
 [/\b(break down|subtasks?|parent)\b/i,"issue.breakdown",["issue_structure"],"ask"],
 [/\b(sprint review|review sprint)\b/i,"sprint.review",["sprint_management","common_read"],"none"],
 [/\b(complete|close)\b.*\bsprint\b/i,"sprint.complete",["sprint_management"],"ask"],
@@ -41,7 +41,7 @@ const intentRules:Array<[RegExp,string,string[],"none"|"ask"|"auto"|"blocked"]>=
 function selectIntentRule(message: string) {
   const matches = intentRules.filter(([pattern]) => pattern.test(message));
   const asksForAction =
-    /\b(create|add|build|turn|draft|record|open|file|log|make)\b/i.test(message) &&
+    /\b(create|add|build|turn|draft|record|open|file|log|make|rename|retitle|update|set|move|mark|estimate|delete|remove)\b/i.test(message) &&
     !/^\s*(what|which|why|how|when|who|is|are|does|do|can|should)\b/i.test(message);
   return (asksForAction ? matches.find(([, , , mutation]) => mutation !== "none") : undefined) ?? matches[0];
 }
