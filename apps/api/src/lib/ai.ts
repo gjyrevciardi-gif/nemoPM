@@ -41,10 +41,24 @@ export function summarizeStateForPrompt(state: ProjectState): string {
   lines.push(
     `Scope: ${state.metrics.scope === "sprint" && state.sprint ? `Sprint "${state.sprint.name}"` : "Whole project (no active sprint)"}`,
   );
-  lines.push(
-    `Issues: ${state.metrics.completedIssues}/${state.metrics.totalIssues} complete. ` +
-      `Points: ${state.metrics.completedPoints}/${state.metrics.totalPoints} complete, ${state.metrics.remainingPoints} remaining.`,
-  );
+  // A ratio is only meaningful once there is something to divide. "0/0 complete"
+  // reads as 100%, and a 3B model duly answered "Project scope complete" for a
+  // project that had never had a single issue created in it. Empty and finished
+  // are opposite states and a PM acts differently on each, so the snapshot says
+  // which one it is instead of leaving the model to infer it.
+  if (state.metrics.totalIssues === 0) {
+    lines.push("Issues: none created yet. The backlog is empty, which is not the same as the work being complete.");
+  } else if (state.metrics.totalPoints === 0) {
+    lines.push(
+      `Issues: ${state.metrics.completedIssues}/${state.metrics.totalIssues} complete. ` +
+        "Points: not estimated -- no issue carries story points.",
+    );
+  } else {
+    lines.push(
+      `Issues: ${state.metrics.completedIssues}/${state.metrics.totalIssues} complete. ` +
+        `Points: ${state.metrics.completedPoints}/${state.metrics.totalPoints} complete, ${state.metrics.remainingPoints} remaining.`,
+    );
+  }
   lines.push(
     state.activeIssue
       ? `Active issue: ${state.activeIssue.key} "${state.activeIssue.title}" (status: ${state.activeIssue.status}, priority: ${state.activeIssue.priority})`

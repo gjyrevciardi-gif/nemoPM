@@ -99,6 +99,8 @@ Every one of these was found by running something, not by reading code. Root cau
 | D-undo | This document asserted that undo covered "single-issue-row tools only", implying a multi-issue commit would come back half-reverted. | The limit had been written down but never tested. It was wrong. | Verified by running an actual undo: a commit naming two issues produces two action rows with distinct targets and their own before/after snapshots, and undo reverses both. A single action touching many rows (`createSubtasks`) is refused whole, before anything is touched. | `apps/api/test/undo-multi-issue.test.ts` |
 | D-collide | This document then described #2's residual collision as "the second commit is swallowed". Wrong in the same way. | Written from reasoning about the dedup query rather than from running it. The link is *always* recorded; only the repeat *proposal* is suppressed, and only across separate scans. | Corrected in section 6 and pinned by a test asserting the real behaviour. | `apps/api/test/git-edge-cases.test.ts` (A5c) |
 
+| CTX1 | Asked for a status on a project with no issues, the model answered *"Progress: Project scope complete"* and invented current work from a branch name. | The state snapshot handed it `Issues: 0/0 complete. Points: 0/0 complete`, and `0/0` reads as 100%. The ambiguity was created by NEMO, not by the model. | The snapshot states which of the two it is: an empty backlog says so in words, and says explicitly that it is not the same as completed work. Points with no estimates say "not estimated" rather than `0/0`. Fixed in the snapshot rather than the prompt — a ratio nobody can misread beats an instruction telling a 3B model to be careful with one. | `apps/api/test/status-prompt.test.ts` |
+
 ### One case where the test was wrong, not the code
 
 `extractIssueKeys("XWAL-1 something")` returns `["XWAL-1"]`, and that is correct: XWAL-1 is a well-formed key for a project called XWAL, and grounding against real issues is what rejects it later. The property worth pinning is that `WAL-1` is never read out of the middle of `XWAL-1`. The expectation was corrected rather than the regex loosened.
@@ -176,7 +178,7 @@ auth, teams, billing, cloud sync, mobile, packaging, Marketplace publishing, Sla
 
 ## 9. State
 
-**314 tests pass across 41 files.**
+**317 tests pass across 42 files.**
 
 | package | files | tests |
 |---|---|---|
@@ -185,7 +187,7 @@ auth, teams, billing, cloud sync, mobile, packaging, Marketplace publishing, Sla
 | `packages/domain` | 7 | 48 |
 | `packages/project-state` | 4 | 28 |
 | `packages/git-context` | 2 | 22 |
-| `apps/api` | 22 | 175 |
+| `apps/api` | 23 | 178 |
 | `apps/vscode` | 1 | 10 |
 
 `pnpm typecheck`, `pnpm test`, and `pnpm build` are all clean. `pnpm test` runs every package in the table, including `apps/vscode`, whose tests would otherwise be easy to run only in isolation and assume covered.
