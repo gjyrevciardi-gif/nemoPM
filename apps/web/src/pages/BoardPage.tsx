@@ -156,7 +156,7 @@ export default function BoardPage() {
         onDragEnd={handleDragEnd}
       >
         <div className="flex h-full flex-col">
-          <div className="mx-6 mt-4 flex flex-none items-center gap-8 rounded-[18px] border border-border-subtle bg-gradient-to-br from-white to-[#EFF9FF] px-5 py-3 shadow-card">
+          <div className="mx-6 mt-4 flex flex-none items-center gap-8 rounded-[18px] border border-border-subtle bg-gradient-to-br from-white to-[#1C212C] px-5 py-3 shadow-card">
             {[{label:"TOTAL",value:Object.values(columns).flat().length},{label:"IN FLIGHT",value:columns.in_progress.length},{label:"REVIEW",value:columns.in_review.length},{label:"SHIPPED",value:columns.done.length}].map((metric, index) => <div key={metric.label} className="min-w-[76px]"><p className="font-mono text-[9px] tracking-[.16em] text-ink-faint">{metric.label}</p><p className="font-display text-2xl font-bold" style={{color:index === 1 ? "#E5793F" : "#002B4C"}}>{metric.value}</p></div>)}
             <button onClick={() => setCreateStatus("backlog")} className="ml-auto flex h-10 items-center gap-2 rounded-xl bg-gradient-to-b from-[#FFC29C] to-[#F59E71] px-4 text-xs font-bold text-[#00243F] shadow-[0_12px_25px_-12px_rgba(245,158,113,1)]"><span className="text-xl leading-none">+</span> New card</button>
           </div>
@@ -221,7 +221,7 @@ function Column({
         <span className="text-[11px] font-extrabold uppercase tracking-[.11em] text-ink/80">{label}</span>
         <div className="ml-auto flex items-center gap-2">
           <span className="font-mono text-[10px] text-ink-faint">{issues.length}</span>
-          <button onClick={onAdd} className="grid h-6 w-6 place-items-center rounded-lg bg-[#002b4c]/[.06] text-ink-faint hover:bg-accent/20 hover:text-accent" aria-label={`Add issue to ${label}`}>
+          <button onClick={onAdd} className="grid h-6 w-6 place-items-center rounded-lg bg-white/[.06] text-ink-faint hover:bg-accent/20 hover:text-accent" aria-label={`Add issue to ${label}`}>
             +
           </button>
         </div>

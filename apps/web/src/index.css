@@ -12,15 +12,15 @@
 
 @layer base {
   html {
-    color-scheme: light;
+    color-scheme: dark;
   }
   body {
     @apply bg-canvas text-ink font-sans antialiased;
     font-weight: 450;
     background-image:
-      radial-gradient(circle at 12% -10%, #fff 0%, rgba(255,255,255,.8) 18%, transparent 43%),
-      radial-gradient(circle at 100% 100%, rgba(245,158,113,.32), transparent 37%),
-      linear-gradient(145deg, #eaf8ff 0%, #c4ebff 48%, #207caf 130%);
+      radial-gradient(circle at 12% -10%, rgba(255,255,255,.07) 0%, rgba(255,255,255,.03) 18%, transparent 43%),
+      radial-gradient(circle at 100% 100%, rgba(245,158,113,.16), transparent 37%),
+      linear-gradient(145deg, #0E1015 0%, #141A24 48%, #0C2233 130%);
     background-attachment: fixed;
   }
   ::selection {
@@ -51,30 +51,30 @@
   }
 }
 
-.tide-glass { background: linear-gradient(180deg, rgba(255,255,255,.94), rgba(255,255,255,.68)); backdrop-filter: blur(16px); }
+.tide-glass { background: linear-gradient(180deg, rgba(22,26,34,.94), rgba(22,26,34,.72)); backdrop-filter: blur(16px); }
 .project-sidebar a {
-  color: #002b4c;
+  color: #eceff4;
 }
 .project-sidebar a[aria-current="page"] {
-  color: #ffffff;
+  color: #0e1015;
 }
 .project-sidebar nav a:not([aria-current="page"]):hover {
-  color: #001d33;
-  background: rgba(0, 43, 76, 0.1);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
 }
 .project-header h1,
 .project-header p {
-  color: #002b4c;
+  color: #eceff4;
 }
 main h1,
 main h2,
 main h3,
 main p {
-  color: #002b4c;
+  color: #eceff4;
 }
-.tide-column { background: linear-gradient(165deg, rgba(255,255,255,.52), rgba(235,248,255,.65)); }
-.tide-card { background: linear-gradient(158deg, #fff, #f1faff); transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
-.tide-card:hover { transform: translateY(-3px); border-color: rgba(245,158,113,.45); box-shadow: 0 20px 36px -24px rgba(0,43,76,.5); }
+.tide-column { background: linear-gradient(165deg, rgba(28,33,44,.55), rgba(22,26,34,.72)); }
+.tide-card { background: linear-gradient(158deg, #1C212C, #161A22); transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.tide-card:hover { transform: translateY(-3px); border-color: rgba(245,158,113,.45); box-shadow: 0 20px 36px -24px rgba(0,0,0,.75); }
 
 /* Signature element: a quiet pulse marking whatever the system considers
    "active" right now -- the one currently in_progress issue, a live git
