@@ -205,7 +205,7 @@ function EntryView({
 
   if (entry.kind === "assistant") {
     return (
-      <div className="agent-message max-w-[85%] rounded-md border border-border bg-surface px-3 py-2 shadow-card">
+      <div className="agent-message max-w-[85%] rounded-md px-3 py-2 shadow-card">
         <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.15em]">NEMO</p>
         <p className="whitespace-pre-wrap text-sm leading-relaxed">{entry.text}</p>
       </div>

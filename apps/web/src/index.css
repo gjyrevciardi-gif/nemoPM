@@ -72,22 +72,24 @@ main h3,
 main p {
   color: #002b4c;
 }
-/* NEMO's replies sit on the page's fixed blue gradient, which darkens toward
-   the bottom right, so a reply had no guaranteed contrast at any given scroll
-   position. It now gets a solid surface like every other panel, and states its
-   own colour: the `main p` rule below is unlayered and therefore beats every
-   Tailwind text utility inside <main>, so a class alone could not be trusted
-   to hold. Written here, at the same level, so it wins on order. */
+/* NEMO's replies state both their colours here, together, and take neither
+   from a theme token. The reply used to sit on the page gradient with no
+   background at all, so its contrast depended on scroll position; giving it a
+   token-based surface then put dark text on a dark card, because the token did
+   not resolve to what the config said. Background and text pinned as a pair is
+   the only version that cannot come apart. */
 .agent-message {
-  color: #002b4c;
+  background: #10243c;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #eaf4ff;
 }
 .agent-message p {
   color: inherit;
 }
+/* The "NEMO" label: quieter than the reply, still well clear of the card. */
 .agent-message p:first-child {
-  color: #496a7f;
+  color: #9dc0da;
 }
-
 .tide-column { background: linear-gradient(165deg, rgba(255,255,255,.52), rgba(235,248,255,.65)); }
 .tide-card { background: linear-gradient(158deg, #fff, #f1faff); transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
 .tide-card:hover { transform: translateY(-3px); border-color: rgba(245,158,113,.45); box-shadow: 0 20px 36px -24px rgba(0,43,76,.5); }
