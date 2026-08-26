@@ -198,16 +198,16 @@ function EntryView({
   if (entry.kind === "user") {
     return (
       <div className="flex justify-end">
-        <p className="max-w-[80%] rounded-md bg-accent px-3 py-2 text-sm text-canvas">{entry.text}</p>
+        <p className="max-w-[80%] rounded-md bg-accent px-3 py-2 text-sm text-ink">{entry.text}</p>
       </div>
     );
   }
 
   if (entry.kind === "assistant") {
     return (
-      <div>
-        <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink-faint">NEMO</p>
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{entry.text}</p>
+      <div className="agent-message max-w-[85%] rounded-md border border-border bg-surface px-3 py-2 shadow-card">
+        <p className="mb-1 font-mono text-[10px] uppercase tracking-[0.15em]">NEMO</p>
+        <p className="whitespace-pre-wrap text-sm leading-relaxed">{entry.text}</p>
       </div>
     );
   }

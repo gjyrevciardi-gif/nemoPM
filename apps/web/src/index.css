@@ -72,6 +72,22 @@ main h3,
 main p {
   color: #002b4c;
 }
+/* NEMO's replies sit on the page's fixed blue gradient, which darkens toward
+   the bottom right, so a reply had no guaranteed contrast at any given scroll
+   position. It now gets a solid surface like every other panel, and states its
+   own colour: the `main p` rule below is unlayered and therefore beats every
+   Tailwind text utility inside <main>, so a class alone could not be trusted
+   to hold. Written here, at the same level, so it wins on order. */
+.agent-message {
+  color: #002b4c;
+}
+.agent-message p {
+  color: inherit;
+}
+.agent-message p:first-child {
+  color: #496a7f;
+}
+
 .tide-column { background: linear-gradient(165deg, rgba(255,255,255,.52), rgba(235,248,255,.65)); }
 .tide-card { background: linear-gradient(158deg, #fff, #f1faff); transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
 .tide-card:hover { transform: translateY(-3px); border-color: rgba(245,158,113,.45); box-shadow: 0 20px 36px -24px rgba(0,43,76,.5); }
