@@ -72,23 +72,6 @@ main h3,
 main p {
   color: #002b4c;
 }
-/* NEMO's replies state their background and their text colour here, together.
-   The reply first sat on the page gradient with no background at all, so its
-   contrast depended on where the page was scrolled. Both colours in one place
-   is the only version that cannot come apart -- which is what happened when
-   the surface came from a token and the text did not. */
-.agent-message {
-  background: #ffffff;
-  border: 1px solid rgba(0, 43, 76, 0.14);
-  color: #002b4c;
-}
-.agent-message p {
-  color: inherit;
-}
-/* The "NEMO" label: quieter than the reply, still well clear of the card. */
-.agent-message p:first-child {
-  color: #496a7f;
-}
 .tide-column { background: linear-gradient(165deg, rgba(255,255,255,.52), rgba(235,248,255,.65)); }
 .tide-card { background: linear-gradient(158deg, #fff, #f1faff); transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
 .tide-card:hover { transform: translateY(-3px); border-color: rgba(245,158,113,.45); box-shadow: 0 20px 36px -24px rgba(0,43,76,.5); }
