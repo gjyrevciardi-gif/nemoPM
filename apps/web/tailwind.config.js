@@ -9,22 +9,22 @@ export default {
         mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
       },
       colors: {
-        canvas: "#0E1015",
-        surface: "#161A22",
-        surface2: "#1C212C",
-        surface3: "#232A38",
+        canvas: "#DFF4FF",
+        surface: "#FFFFFF",
+        surface2: "#EFF9FF",
+        surface3: "#E3F2FA",
         border: {
-          DEFAULT: "#262C39",
-          subtle: "#1B202A",
+          DEFAULT: "rgba(0,43,76,.14)",
+          subtle: "rgba(0,43,76,.08)",
         },
         ink: {
-          DEFAULT: "#ECEFF4",
-          muted: "#9AA1B4",
-          faint: "#666E82",
+          DEFAULT: "#002B4C",
+          muted: "#244A63",
+          faint: "#496A7F",
         },
         accent: {
           DEFAULT: "#F59E71",
-          soft: "#2E2517",
+          soft: "#FFF0E8",
           hover: "#EA8959",
         },
         status: {

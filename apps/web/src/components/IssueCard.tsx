@@ -36,9 +36,9 @@ export function IssueCard({ issue, onClick }: { issue: Issue; onClick: () => voi
       </div>
       <p className="text-[13.5px] font-semibold leading-snug text-ink">{issue.title}</p>
       <div className="mt-4 flex items-center gap-2">
-        <div className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-[#2B8FC4] to-[#F59E71]" style={{ width: issue.status === "done" ? "100%" : issue.status === "in_review" ? "80%" : issue.status === "in_progress" ? "55%" : "18%" }} /></div>
+        <div className="h-[3px] flex-1 overflow-hidden rounded-full bg-[#002b4c]/10"><div className="h-full rounded-full bg-gradient-to-r from-[#2B8FC4] to-[#F59E71]" style={{ width: issue.status === "done" ? "100%" : issue.status === "in_review" ? "80%" : issue.status === "in_progress" ? "55%" : "18%" }} /></div>
         {issue.storyPoints != null && (
-          <span className="rounded-md bg-white/[.07] px-1.5 py-0.5 font-mono text-[9px] font-bold text-ink-muted">
+          <span className="rounded-md bg-[#002b4c]/[.07] px-1.5 py-0.5 font-mono text-[9px] font-bold text-ink-muted">
             {issue.storyPoints} PT
           </span>
         )}
