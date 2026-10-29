@@ -9,6 +9,9 @@ process.env.DATABASE_PATH = ":memory:";
 // deterministic regardless of whether a real Ollama happens to be running on
 // this machine (port 1 is reserved and refuses connections immediately).
 process.env.OLLAMA_BASE_URL = "http://127.0.0.1:1";
+// Also blank any cloud key a developer's local .env may set, so this stays
+// deterministic regardless of machine-specific config.
+process.env.GEMINI_API_KEY = "";
 
 let app: FastifyInstance;
 let closeDb: () => void;

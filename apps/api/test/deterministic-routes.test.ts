@@ -4,6 +4,7 @@ import { OllamaShapedProvider } from "./ollama-shaped-provider.js";
 
 process.env.DATABASE_PATH = ":memory:";
 process.env.OLLAMA_BASE_URL = "http://127.0.0.1:1";
+process.env.GEMINI_API_KEY = "";
 
 let app: FastifyInstance;
 let closeDb: () => void;

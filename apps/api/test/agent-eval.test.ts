@@ -7,6 +7,7 @@ import { ScriptedProvider, call } from "./scripted-provider.js";
 // accidentally depend on a real model being installed.
 process.env.DATABASE_PATH = ":memory:";
 process.env.OLLAMA_BASE_URL = "http://127.0.0.1:1";
+process.env.GEMINI_API_KEY = "";
 
 let app: FastifyInstance;
 let db: Database.Database;

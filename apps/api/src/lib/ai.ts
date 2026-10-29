@@ -1,4 +1,4 @@
-import { AIUnavailableError, OllamaProvider } from "@ai-pm/ai";
+import { AIUnavailableError, GeminiProvider, OllamaProvider } from "@ai-pm/ai";
 import type { AIProvider } from "@ai-pm/ai";
 import { PlanTaskResponseSchema } from "@ai-pm/shared";
 import type { Issue, PlanTaskResponse, ProjectState, Sprint } from "@ai-pm/shared";
@@ -6,7 +6,7 @@ import type { Issue, PlanTaskResponse, ProjectState, Sprint } from "@ai-pm/share
 let provider: AIProvider | null = null;
 
 export function getAIProvider(): AIProvider {
-  if (!provider) provider = new OllamaProvider();
+  if (!provider) provider = process.env.GEMINI_API_KEY ? new GeminiProvider() : new OllamaProvider();
   return provider;
 }
 
