@@ -31,14 +31,14 @@ export function IssueCard({ issue, onClick }: { issue: Issue; onClick: () => voi
         </span>
         <span className="font-mono text-[10px] text-ink-faint">{issue.key}</span>
         <span className="ml-auto flex items-end gap-0.5" title={`${issue.priority} priority`}>
-          {[1,2,3].map((bar) => <span key={bar} className="w-[3px] rounded-full" style={{ height: 3 + bar * 2, background: bar <= (PRIORITY_BARS[issue.priority] ?? 1) ? (issue.priority === "critical" ? "#E66A5C" : "#F59E71") : "rgba(0,43,76,.13)" }} />)}
+          {[1,2,3].map((bar) => <span key={bar} className="w-[3px] rounded-full" style={{ height: 3 + bar * 2, background: bar <= (PRIORITY_BARS[issue.priority] ?? 1) ? (issue.priority === "critical" ? "#E66A5C" : "#22A866") : "rgba(11,43,30,.13)" }} />)}
         </span>
       </div>
       <p className="text-[13.5px] font-semibold leading-snug text-ink">{issue.title}</p>
       <div className="mt-4 flex items-center gap-2">
-        <div className="h-[3px] flex-1 overflow-hidden rounded-full bg-[#002b4c]/10"><div className="h-full rounded-full bg-gradient-to-r from-[#2B8FC4] to-[#F59E71]" style={{ width: issue.status === "done" ? "100%" : issue.status === "in_review" ? "80%" : issue.status === "in_progress" ? "55%" : "18%" }} /></div>
+        <div className="h-[3px] flex-1 overflow-hidden rounded-full bg-ink/10"><div className="h-full rounded-full bg-gradient-to-r from-[#6FD8A6] to-[#22A866]" style={{ width: issue.status === "done" ? "100%" : issue.status === "in_review" ? "80%" : issue.status === "in_progress" ? "55%" : "18%" }} /></div>
         {issue.storyPoints != null && (
-          <span className="rounded-md bg-[#002b4c]/[.07] px-1.5 py-0.5 font-mono text-[9px] font-bold text-ink-muted">
+          <span className="rounded-md bg-ink/[.07] px-1.5 py-0.5 font-mono text-[9px] font-bold text-ink-muted">
             {issue.storyPoints} PT
           </span>
         )}

@@ -4,7 +4,7 @@ import type { SprintBurndown } from "@ai-pm/shared";
 const WIDTH = 560;
 const HEIGHT = 160;
 const PAD = { top: 10, right: 12, bottom: 22, left: 32 };
-const ACCENT = "#E9A23B";
+const ACCENT = "#22A866";
 
 function formatDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00.000Z`);

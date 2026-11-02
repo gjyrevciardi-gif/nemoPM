@@ -83,7 +83,7 @@ export default function DashboardPage() {
           )}
         </Panel>
 
-        <Panel title="Ask AI PM">
+        <Panel title="Ask Nemo">
           <AiStatusPanel projectId={id!} />
         </Panel>
       </div>

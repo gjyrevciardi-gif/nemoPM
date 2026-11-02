@@ -22,7 +22,7 @@ export function AiStatusPanel({ projectId }: { projectId: string }) {
           }}
         />
         <Button variant="primary" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-          {mutation.isPending ? <Spinner className="h-4 w-4" /> : "Ask AI PM"}
+          {mutation.isPending ? <Spinner className="h-4 w-4" /> : "Ask Nemo"}
         </Button>
       </div>
 

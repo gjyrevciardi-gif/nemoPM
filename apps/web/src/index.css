@@ -19,15 +19,15 @@
     font-weight: 450;
     background-image:
       radial-gradient(circle at 12% -10%, #fff 0%, rgba(255,255,255,.8) 18%, transparent 43%),
-      radial-gradient(circle at 100% 100%, rgba(245,158,113,.32), transparent 37%),
-      linear-gradient(145deg, #eaf8ff 0%, #c4ebff 48%, #207caf 130%);
+      radial-gradient(circle at 100% 100%, rgba(34,168,102,.3), transparent 37%),
+      linear-gradient(145deg, #eafdf3 0%, #c7ecd7 48%, #1f7a4f 130%);
     background-attachment: fixed;
   }
   ::selection {
-    background: rgba(245, 158, 113, 0.34);
+    background: rgba(34, 168, 102, 0.34);
   }
   :focus-visible {
-    outline: 2px solid #f59e71;
+    outline: 2px solid #22a866;
     outline-offset: 2px;
   }
   * {
@@ -53,38 +53,38 @@
 
 .tide-glass { background: linear-gradient(180deg, rgba(255,255,255,.94), rgba(255,255,255,.68)); backdrop-filter: blur(16px); }
 .project-sidebar a {
-  color: #002b4c;
+  color: #0b2b1e;
 }
 .project-sidebar a[aria-current="page"] {
   color: #ffffff;
 }
 .project-sidebar nav a:not([aria-current="page"]):hover {
-  color: #001d33;
-  background: rgba(0, 43, 76, 0.1);
+  color: #082015;
+  background: rgba(11, 43, 30, 0.1);
 }
 .project-header h1,
 .project-header p {
-  color: #002b4c;
+  color: #0b2b1e;
 }
 main h1,
 main h2,
 main h3,
 main p {
-  color: #002b4c;
+  color: #0b2b1e;
 }
-.tide-column { background: linear-gradient(165deg, rgba(255,255,255,.52), rgba(235,248,255,.65)); }
-.tide-card { background: linear-gradient(158deg, #fff, #f1faff); transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
-.tide-card:hover { transform: translateY(-3px); border-color: rgba(245,158,113,.45); box-shadow: 0 20px 36px -24px rgba(0,43,76,.5); }
+.tide-column { background: linear-gradient(165deg, rgba(255,255,255,.52), rgba(234,253,240,.65)); }
+.tide-card { background: linear-gradient(158deg, #fff, #eefaf3); transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.tide-card:hover { transform: translateY(-3px); border-color: rgba(34,168,102,.45); box-shadow: 0 20px 36px -24px rgba(11,43,30,.5); }
 
 /* Signature element: a quiet pulse marking whatever the system considers
    "active" right now -- the one currently in_progress issue, a live git
    connection. Used sparingly and only for genuinely live state. */
 @keyframes signal-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(245, 158, 113, 0.5);
+    box-shadow: 0 0 0 0 rgba(34, 168, 102, 0.5);
   }
   100% {
-    box-shadow: 0 0 0 8px rgba(245, 158, 113, 0);
+    box-shadow: 0 0 0 8px rgba(34, 168, 102, 0);
   }
 }
 

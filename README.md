@@ -1,9 +1,9 @@
-# AI PM
+# Nemo AI PM
 
 A local-first, single-user AI project manager for developers. It combines a Trello/Jira-style
-board, basic Scrum, a VS Code extension, local Git awareness, and an AI PM assistant that gives
-evidence-based status and risk summaries -- grounded in a deterministic state engine, never in
-vibes.
+board, basic Scrum, a VS Code extension, local Git awareness, and Nemo -- an AI PM assistant that
+gives evidence-based status and risk summaries -- grounded in a deterministic state engine, never
+in vibes.
 
 The core idea: **you work mainly inside VS Code, and the system keeps enough project context
 updated automatically to act like a PM** -- without surveillance, without inventing facts, and
@@ -39,7 +39,9 @@ without silently completing your work for you.
   it. `agent/undo` reverses the last applied run in one transaction. It refuses, by name and
   before touching anything, when an action has no defined inverse, when someone edited the target
   since, when the target is gone, or when the run was already undone -- a run that cannot be fully
-  reversed is not partly reversed.
+  reversed is not partly reversed. Snapshots are versioned and restore exact start/completion
+  timestamps; runs recorded by an older snapshot format return `INCOMPATIBLE_SNAPSHOT` without
+  changing data or the run status.
 - **VS Code extension** -- a sidebar showing your project/current task/sprint/risks, a chat panel,
   and commands to connect or disconnect a project, select/start/review/complete your current task,
   create tasks, scan Git activity, and get an AI status report -- all from the editor. It also
@@ -127,7 +129,7 @@ computed, so completing the blocking issue automatically resolves the dependent 
 ## Prerequisites
 
 - Node.js >= 18.17
-- pnpm (`corepack enable` or `npm install -g pnpm`)
+- pnpm through Corepack (`corepack pnpm`)
 - Git
 - (Optional, for real AI responses) [Ollama](https://ollama.com) running locally with at least one
   model pulled, e.g. `ollama pull llama3.1`. Without it, the app works fully -- AI status falls back
@@ -137,8 +139,8 @@ computed, so completing the blocking issue automatically resolves the dependent 
 
 ## Installation
 
-```bash
-pnpm install
+```powershell
+corepack pnpm install
 ```
 
 ## Environment variables
@@ -152,11 +154,17 @@ OLLAMA_BASE_URL=http://127.0.0.1:11434
 OLLAMA_MODEL=
 OLLAMA_TIMEOUT_MS=120000
 API_PORT=43821
+API_ALLOWED_ORIGINS=
 ```
 
 `OLLAMA_MODEL` can be left blank -- the app auto-detects the first locally installed Ollama model.
 `DATABASE_PATH` is resolved relative to the repo root regardless of which directory a script is
-invoked from.
+invoked from. The browser defaults to the exact origins `http://localhost:5174` and
+`http://127.0.0.1:5174`. Add any other exact origins to `API_ALLOWED_ORIGINS` as a comma-separated
+list. Origins are compared byte-for-byte after validation; paths, credentials, query strings, and
+the literal `null` origin are rejected. Requests without `Origin` remain available to local
+clients such as the VS Code extension. API `Host` values must be `localhost`, `127.0.0.1`, or
+`[::1]`, with the actual listening port once the server is listening.
 
 ## Database setup & seed data
 
@@ -166,23 +174,57 @@ seen is applied, in order, in a transaction, the next time the API connects. Not
 database -- including `0010`, which rebuilds `code_links` in place because SQLite cannot drop a
 table-level constraint. To populate the demo project:
 
-```bash
-pnpm seed
+Migration `0012` also rebuilds the `risks` table in place. The rebuild preserves every existing
+risk row and both foreign keys, replaces the old status-wide uniqueness with a partial unique index
+for open risks, and permits multiple resolved episodes for the same risk. Back up the database
+before the first restart that applies this migration.
+
+```powershell
+corepack pnpm seed
 ```
 
 This creates project **Acme SaaS** (key `ACME`) with an active **Sprint 1** and six issues
 (ACME-1 through ACME-6, matching the auth epic / login / dashboard / password recovery / billing /
-token-refresh-bug set), including the dependency **ACME-4 depends on ACME-2**. Re-running `pnpm
-seed` is a no-op if the project already exists; delete `data/ai-pm.db` for a truly fresh start.
+token-refresh-bug set), including the dependency **ACME-4 depends on ACME-2**. Re-running
+`corepack pnpm seed` is a no-op if the project already exists; delete `data/ai-pm.db` for a truly
+fresh start.
 
 ## Running locally
 
-```bash
-pnpm dev
+```powershell
+corepack pnpm dev
 ```
 
-Starts the API (`http://127.0.0.1:43821`) and the web app (`http://localhost:5174`) together. Open
-the web app, click into **Acme SaaS**, and use the Board / Backlog / Activity tabs.
+First builds the six shared packages, then watches each one. The API watcher also watches rebuilt
+package output and restarts when it changes. The command then starts the API
+(`http://127.0.0.1:43821`) and the web app (`http://localhost:5174`) together. Open the web app,
+click into **Acme SaaS**, and use the Board / Backlog / Activity tabs.
+
+For a clean-checkout verification, the root commands build packages in dependency order and include
+the VS Code extension:
+
+```powershell
+corepack pnpm typecheck
+corepack pnpm test
+corepack pnpm build
+corepack pnpm smoke:startup
+```
+
+Package tests resolve shared-package source through Vitest aliases, so they cannot pass against
+stale `dist` output. Runtime API imports resolve compiled package entries and declarations.
+
+Inspect existing data without loading `.env`, creating a database, or running migrations:
+
+```powershell
+node apps/api/scripts/audit-existing-data.mjs --json
+node apps/api/scripts/audit-existing-data.mjs "C:\path\to\ai-pm.db" --json
+```
+
+The audit opens SQLite with `readonly: true`, uses a consistent read transaction, and prints
+aggregate reference, hierarchy, lifecycle, migration, and foreign-key findings. Issue titles,
+descriptions, and other source values are never printed. A missing database is reported without
+being created. The exit status is `2` when findings are present and `1` for an incompatible schema
+or unreadable file.
 
 ## Ollama setup (optional, for real AI responses)
 
@@ -198,12 +240,12 @@ PM" still works and clearly labels its response as an offline summary; AI task p
 
 ## VS Code extension setup
 
-The extension lives at `apps/vscode` and is developed/run independently of the `pnpm dev` web
+The extension lives at `apps/vscode` and is developed/run independently of the `corepack pnpm dev` web
 workspace (this is the standard way to develop a VS Code extension):
 
 1. In VS Code: **File -> Open Folder...** -> select `ai-pm/apps/vscode` (open it as its own folder,
    not as part of the monorepo root).
-2. Run `pnpm install` at the **monorepo root** first if you haven't already (this links
+2. Run `corepack pnpm install` at the **monorepo root** first if you haven't already (this links
    `apps/vscode`'s dependencies via the pnpm workspace).
 3. Press **F5** (or Run -> Start Debugging). This builds the extension (`tsc`, via the preconfigured
    task in `.vscode/tasks.json`) and launches a new **Extension Development Host** window with "AI
@@ -212,7 +254,7 @@ workspace (this is the standard way to develop a VS Code extension):
    (any local repo works).
 5. Click the **AI PM** icon in the Activity Bar (left sidebar). It starts disconnected.
 6. Run **AI PM: Connect or Switch Project** from the Command Palette (Cmd/Ctrl+Shift+P) -- requires
-   the API server to be running (`pnpm dev` in the monorepo root, in a separate terminal). Pick a
+   the API server to be running (`corepack pnpm dev` in the monorepo root, in a separate terminal). Pick a
    project; if the currently open workspace folder matches it, or once you connect it, its path is
    saved as that project's `repositoryPath` automatically.
 7. Run **AI PM: Select Current Task**, pick an issue.
@@ -244,6 +286,7 @@ configurable via the `aiPm.apiUrl` setting (default `http://127.0.0.1:43821`).
 | `OLLAMA_MODEL`     | *(blank -> auto-detect)*    | Pin a specific model name if you have several   |
 | `OLLAMA_TIMEOUT_MS`| `120000`                    | Per-call timeout; raise it on slower hardware   |
 | `API_PORT`         | `43821`                     | API server port                                 |
+| `API_ALLOWED_ORIGINS` | *(empty)*                | Extra exact browser origins, comma-separated    |
 | `LOG_LEVEL`        | `info`                      | Fastify log level                               |
 
 ## API summary
